@@ -66,7 +66,7 @@ int main(int argc, const char * argv[]) {
 	int startSize = Simplify::triangles.size();
 	Simplify::simplify_mesh(target_count, agressiveness, true);
 	//Simplify::simplify_mesh_lossless( false);
-	if ( Simplify::triangles.size() >= startSize) {
+	if ( Simplify::triangles.size() >= (size_t) startSize) {
 		printf("Unable to reduce mesh.\n");
     	return EXIT_FAILURE;
 	}

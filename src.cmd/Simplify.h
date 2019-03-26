@@ -27,9 +27,9 @@
 #include <math.h>
 #include <float.h> //FLT_EPSILON, DBL_EPSILON
 
-#define loopi(start_l,end_l) for ( int i=start_l;i<end_l;++i )
-#define loopi(start_l,end_l) for ( int i=start_l;i<end_l;++i )
-#define loopj(start_l,end_l) for ( int j=start_l;j<end_l;++j )
+// #define loopi(start_l,end_l) for ( int i=start_l;i<end_l;++i )
+#define loopi(start_l,end_l) for ( int i=start_l;i<int(end_l);++i )
+#define loopj(start_l,end_l) for ( int j=start_l;j<int(end_l);++j )
 #define loopk(start_l,end_l) for ( int k=start_l;k<end_l;++k )
 
 struct vector3
@@ -452,7 +452,7 @@ namespace Simplify
 		// main iteration loop
 		int deleted_triangles=0;
 		std::vector<int> deleted0,deleted1;
-		int triangle_count=triangles.size();
+		//int triangle_count=triangles.size();
 		//int iteration = 0;
 		//loop(iteration,0,100)
 		for (int iteration = 0; iteration < 9999; iteration ++)
@@ -534,7 +534,6 @@ namespace Simplify
 		// clean up mesh
 		compact_mesh();
 	} //simplify_mesh_lossless()
-
 
 	// Check if a triangle flips when this edge is removed
 
@@ -711,12 +710,12 @@ namespace Simplify
 					loopk(0,3)
 					{
 						int ofs=0,id=t.v[k];
-						while(ofs<vcount.size())
+						while((size_t)ofs<vcount.size())
 						{
 							if(vids[ofs]==id)break;
 							ofs++;
 						}
-						if(ofs==vcount.size())
+						if((size_t)ofs==vcount.size())
 						{
 							vcount.push_back(1);
 							vids.push_back(id);
@@ -816,8 +815,9 @@ namespace Simplify
 		// Trim leading space
 		while(isspace((unsigned char)*str)) str++;
 
-		if(*str == 0)  // All spaces?
-		return str;
+		if(*str == 0) { // All spaces?
+			return str;
+		}
 
 		// Trim trailing space
 		end = str + strlen(str) - 1;
@@ -872,17 +872,19 @@ namespace Simplify
 
 			if ( line[0] == 'v' && line[1] == 't' )
 			{
-				if ( line[2] == ' ' )
+				if ( line[2] == ' ' ) {
 				if(sscanf(line,"vt %lf %lf",
 					&uv.x,&uv.y)==2)
 				{
 					uv.z = 0;
 					uvs.push_back(uv);
-				} else
+				}
+				} else {
 				if(sscanf(line,"vt %lf %lf %lf",
 					&uv.x,&uv.y,&uv.z)==3)
 				{
 					uvs.push_back(uv);
+				}
 				}
 			}
 			else if ( line[0] == 'v' )
