@@ -26,6 +26,7 @@
 #include <string>
 #include <math.h>
 #include <float.h> //FLT_EPSILON, DBL_EPSILON
+#include "Functions.h"
 
 // #define loopi(start_l,end_l) for ( int i=start_l;i<end_l;++i )
 #define loopi(start_l,end_l) for ( int i=start_l;i<int(end_l);++i )
@@ -342,7 +343,9 @@ namespace Simplify
 	//                 more iterations yield higher quality
 	//
 
-	void simplify_mesh(int target_count, double agressiveness=7, bool verbose=false)
+	void simplify_mesh(int target_count, double agressiveness=7, bool verbose=false,
+		double (*func)(double, double, double, double, double, double, double, double, bool)=constantFunc,
+		double indexOfInput=0, double radius=def_radius, double scale=def_scale, double power=1, bool isneg=false)
 	{
 		// init
 		loopi(0,triangles.size())
@@ -352,12 +355,15 @@ namespace Simplify
 
 		// main iteration loop
 		int deleted_triangles=0;
+		int deleted_triangles_before=-1;
+		int deleted_triangles_after=-1;
 		std::vector<int> deleted0,deleted1;
 		int triangle_count=triangles.size();
 		//int iteration = 0;
 		//loop(iteration,0,100)
-		for (int iteration = 0; iteration < 100; iteration ++)
+		for (int iteration = 0; iteration < 1000; iteration ++)
 		{
+			deleted_triangles_before = deleted_triangles;
 			if(triangle_count-deleted_triangles<=target_count)break;
 
 			// update mesh once in a while
@@ -375,17 +381,25 @@ namespace Simplify
 			// The following numbers works well for most models.
 			// If it does not, try to adjust the 3 parameters
 			//
-			double threshold = 0.000000001*pow(double(iteration+3),agressiveness);
-
+			double threshold0 = 0.000000001*pow(double(iteration+3),agressiveness);
+			double threshold;
 			// target number of triangles reached ? Then break
 			if ((verbose) && (iteration%5==0)) {
-				printf("iteration %d - triangles %d threshold %g\n",iteration,triangle_count-deleted_triangles, threshold);
+				printf("iteration %d - triangles %d threshold %g\n",iteration,triangle_count-deleted_triangles, threshold0);
 			}
 
 			// remove vertices & mark deleted triangles
 			loopi(0,triangles.size())
 			{
 				Triangle &t=triangles[i];
+				if (func != constantFunc) {
+					threshold = threshold0*pow(func(
+					vertices[t.v[0]].p.x, vertices[t.v[0]].p.y, vertices[t.v[0]].p.z,
+					vertices[indexOfInput].p.x, vertices[indexOfInput].p.y, vertices[indexOfInput].p.z,
+					radius, scale, isneg), power);
+				} else {
+					threshold = threshold0;
+				}
 				if(t.err[3]>threshold) continue;
 				if(t.deleted) continue;
 				if(t.dirty) continue;
@@ -439,6 +453,8 @@ namespace Simplify
 				// done?
 				if(triangle_count-deleted_triangles<=target_count)break;
 			}
+			deleted_triangles_after = deleted_triangles;
+			if(deleted_triangles_before == deleted_triangles_after)break;
 		}
 		// clean up mesh
 		compact_mesh();
