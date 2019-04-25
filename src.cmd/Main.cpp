@@ -18,8 +18,9 @@
 #include "Simplify.h"
 #include <stdio.h>
 #include <time.h>  // clock_t, clock, CLOCKS_PER_SEC
+#include <unistd.h>
 
-void showHelp(const char * argv[]) {
+void showHelp(char *const argv[]) {
     const char *cstr = (argv[0]);
     printf("Usage: %s <input> <output> <ratio> <agressiveness> <function> <indexOfInput> <radius> <scale> <power> <negative>)\n", cstr);
     printf(" Input: name of existing OBJ format mesh\n");
@@ -46,83 +47,109 @@ void showHelp(const char * argv[]) {
 #endif
 } //showHelp()
 
-int main(int argc, const char * argv[]) {
+int getopt(int argc, char *const argv[], const char *optstring);
+// extern char *optarg;
+// extern int optind, opterr, optopt;
+
+int main(int argc, char *const argv[]) {
     printf("Mesh Simplification (C)2014 by Sven Forstmann in 2014, MIT License (%zu-bit)\n", sizeof(size_t)*8);
-    if (argc < 3) {
+    
+    double reduceFraction = 1.0;
+    double aggressiveness = 7.0;
+    double (*func)(double, double, double, double, double, double, double, double, bool) = constantFunc;
+    double coord[] = {0, 0, 0};
+    double radius = 1.0;
+    double scale = 1.0;
+    double power = 1.0;
+    bool isVerbose = false, isNegative = false;
+
+    int c;
+	char *pcoord;
+    const char *optstring = "t:a:f:c:r:s:p:vnh";
+    while ((c = getopt(argc, argv, optstring)) != -1) {
+        switch (c) {
+        case 't':
+            reduceFraction = atof(optarg);
+            if (reduceFraction > 1.0)
+                reduceFraction = 1.0; //lossless only
+            if (reduceFraction <= 0.0) {
+                printf("Ratio must be BETWEEN zero and one.\n");
+                return EXIT_FAILURE;
+            }
+            break;
+        case 'a':
+            aggressiveness = atof(optarg);
+            break;
+        case 'f':
+            printf("Checking function: ");
+            if (strcmp(optarg, "gaussian") == 0) {
+                printf("gaussian\n");
+                func = gaussian;
+            } else if (strcmp(optarg, "triangular") == 0) {
+                printf("triangular\n");
+                func = triangular;
+            } else if (strcmp(optarg, "square") == 0) {
+                printf("square\n");
+                func = square;
+            } else {
+                printf("constant function (uniform)\n");
+            }
+            break;
+        case 'c':
+            pcoord = strtok(optarg, "{[( ,)]}");
+            coord[0] = atof(pcoord);
+            for (int i = 1; i < 3; i++) {
+                pcoord = strtok(NULL, "{[( ,)]}");
+                coord[i] = atof(pcoord);
+            }
+            break;
+        case 'r':
+            radius = atof(optarg);
+            break;
+        case 's':
+            scale = atof(optarg);
+            break;
+        case 'p':
+            power = atof(optarg);
+            break;
+        case 'v':
+            isVerbose = true;
+            break;
+        case 'n':
+            isNegative = true;
+            break;
+        case '?':
+        case 'h':
+            showHelp(argv);
+            return EXIT_SUCCESS;
+        default:
+            return EXIT_FAILURE;
+        }
+    }
+    if ((func == gaussian) && (scale <= 1))
+		printf("  Warning: cannot use scale = %f for gaussian, will use default = 2\n", scale);
+    if (argc - optind < 2) {
         showHelp(argv);
         return EXIT_SUCCESS;
     }
-	Simplify::load_obj(argv[1]);
+	Simplify::load_obj(argv[optind]);
 	if ((Simplify::triangles.size() < 3) || (Simplify::vertices.size() < 3))
 		return EXIT_FAILURE;
-	int target_count =  Simplify::triangles.size() >> 1;
-    if (argc > 3) {
-    	float reduceFraction = atof(argv[3]);
-    	if (reduceFraction > 1.0) reduceFraction = 1.0; //lossless only
-    	if (reduceFraction <= 0.0) {
-    		printf("Ratio must be BETWEEN zero and one.\n");
-    		return EXIT_FAILURE;
-    	}
-    	target_count = round((float)Simplify::triangles.size() * atof(argv[3]));
-    }
+	int target_count = round((float)Simplify::triangles.size() * reduceFraction);
     if (target_count < 4) {
 		printf("Object will not survive such extreme decimation\n");
     	return EXIT_FAILURE;
     }
-    double agressiveness = 7.0;
-    if (argc > 4) {
-    	agressiveness = atof(argv[4]);
-    }
 	clock_t start = clock();
 	printf("Input: %zu vertices, %zu triangles (target %d)\n", Simplify::vertices.size(), Simplify::triangles.size(), target_count);
 	int startSize = Simplify::triangles.size();
-	if (argc > 5) {
-		printf("Checking function: ");
-		double (*func)(double, double, double, double, double, double, double, double, bool) = constantFunc;
-		double indexOfInput=0, radius=def_radius, scale=def_scale, power=1;
-		bool isneg=false;
-		if (strcmp(argv[5], "gaussian") == 0) {
-			printf(" Using gaussian\n");
-			func = gaussian;
-		} else if (strcmp(argv[5], "triangular") == 0) {
-			printf(" Using triangular\n");
-			func = triangular;
-		} else if (strcmp(argv[5], "square") == 0) {
-			printf(" Using square\n");
-			func = square;
-		} else {
-			printf(" Using constant function (uniform)\n");
-		}
-		if (argc > 6) {
-			indexOfInput = atof(argv[6]);
-			if (argc > 7) {
-				radius = atof(argv[7]);
-				if (argc > 8) {
-					scale = atof(argv[8]);
-					if ((scale <= 1) && (strcmp(argv[5], "gaussian") == 0)) {
-						printf("Cannot use scale = %f for gaussian, using default = 2\n", scale);
-					}
-					if (argc > 9) {
-						power = atof(argv[9]);
-						if ((argc > 10) && (strcmp(argv[10], "true") == 0)) {
-							isneg = true;
-						}
-					}
-				}
-			}
-		}
-		printf("Starting simplify with function\n");
-		Simplify::simplify_mesh(target_count, agressiveness, true, func, indexOfInput, radius, scale, power, isneg);
-	} else {
-		printf("Starting uniform simplify\n");
-		Simplify::simplify_mesh(target_count, agressiveness, true);
-	}
+    Simplify::simplify_mesh(target_count, aggressiveness, isVerbose, func, coord[0], radius, scale, power, isNegative);
 	//Simplify::simplify_mesh_lossless( false);
 	if ( Simplify::triangles.size() >= (size_t) startSize) {
 		printf("Unable to reduce mesh.\n");
     	return EXIT_FAILURE;
 	}
-	Simplify::write_obj(argv[2]);
+	Simplify::write_obj(argv[optind+1]);
 	printf("Output: %zu vertices, %zu triangles (%f reduction; %.4f sec)\n",Simplify::vertices.size(), Simplify::triangles.size()
 		, (float)Simplify::triangles.size()/ (float) startSize  , ((float)(clock()-start))/CLOCKS_PER_SEC );
 	return EXIT_SUCCESS;
