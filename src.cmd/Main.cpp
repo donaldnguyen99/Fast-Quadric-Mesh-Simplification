@@ -97,10 +97,9 @@ int main(int argc, char *const argv[]) {
             break;
         case 'c':
             pcoord = strtok(optarg, "{[( ,)]}");
-            coord[0] = atof(pcoord);
-            for (int i = 1; i < 3; i++) {
-                pcoord = strtok(NULL, "{[( ,)]}");
+            for (int i = 0; i < 3; i++) {
                 coord[i] = atof(pcoord);
+                pcoord = strtok(NULL, "{[( ,)]}");
             }
             break;
         case 'r':
@@ -143,7 +142,7 @@ int main(int argc, char *const argv[]) {
 	clock_t start = clock();
 	printf("Input: %zu vertices, %zu triangles (target %d)\n", Simplify::vertices.size(), Simplify::triangles.size(), target_count);
 	int startSize = Simplify::triangles.size();
-    Simplify::simplify_mesh(target_count, aggressiveness, isVerbose, func, coord[0], radius, scale, power, isNegative);
+    Simplify::simplify_mesh(coord, target_count, aggressiveness, isVerbose, func, radius, scale, power, isNegative);
 	//Simplify::simplify_mesh_lossless( false);
 	if ( Simplify::triangles.size() >= (size_t) startSize) {
 		printf("Unable to reduce mesh.\n");

@@ -343,9 +343,9 @@ namespace Simplify
 	//                 more iterations yield higher quality
 	//
 
-	void simplify_mesh(int target_count, double agressiveness=7, bool verbose=false,
+	void simplify_mesh(double coord[3], int target_count, double agressiveness=7, bool verbose=false,
 		double (*func)(double, double, double, double, double, double, double, double, bool)=constantFunc,
-		double indexOfInput=0, double radius=def_radius, double scale=def_scale, double power=1, bool isneg=false)
+		double radius=def_radius, double scale=def_scale, double power=1, bool isneg=false)
 	{
 		// init
 		loopi(0,triangles.size())
@@ -395,7 +395,7 @@ namespace Simplify
 				if (func != constantFunc) {
 					threshold = threshold0*pow(func(
 					vertices[t.v[0]].p.x, vertices[t.v[0]].p.y, vertices[t.v[0]].p.z,
-					vertices[indexOfInput].p.x, vertices[indexOfInput].p.y, vertices[indexOfInput].p.z,
+					coord[0], coord[1], coord[2],
 					radius, scale, isneg), power);
 				} else {
 					threshold = threshold0;
