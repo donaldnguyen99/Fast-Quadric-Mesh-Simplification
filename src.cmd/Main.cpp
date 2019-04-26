@@ -22,29 +22,36 @@
 
 void showHelp(char *const argv[]) {
     const char *cstr = (argv[0]);
-    printf("Usage: %s <input> <output> <ratio> <agressiveness> <function> <indexOfInput> <radius> <scale> <power> <negative>)\n", cstr);
-    printf(" Input: name of existing OBJ format mesh\n");
-    printf(" Output: name for decimated OBJ format mesh\n");
-    printf(" Ratio: (default = 0.5) for example 0.2 will decimate 80%% of triangles\n");
-    printf(" Agressiveness: (default = 7.0) higher -> faster, lower -> better decimation\n");
-	printf("   Previous options must be given to use <function>\n");
-	printf(" Function: (default = constantFunc) gaussian, triangular, or square\n");
-	printf("   IndexOfInput: (default = 0) pick index of vertex from list of vertices\n");
-	printf("   Radius: (default = 1) radius for function\n");
-	printf("   Scale: specific for each function\n");
-	printf("     (gaussian's default = 2 if scale <= 1) scales gaussian curve by 1/scale");
-	printf("     (triangular's default = 1) scales down radius/width by 1/scale\n");
-	printf("     (square's default = 1) decimal from -1.0 and 1.0, with 1.0 -> no simplification inside radius\n");
-	printf("   Power: (default = 1.0) Exponent which the function is raised to, higher -> function more visibly conveyed\n");
-	printf("   Negative: (default = true) inverts function mapping\n");
-    printf("Examples :\n");
+    printf("Usage: %s [option...] inputfile outputfile\n", cstr);
+    printf("%s simplifies an triangular mesh .obj file using a quadric error metrics.\n", cstr);
+    printf(" Examples:\n");
 #if defined(_WIN64) || defined(_WIN32)
-    printf("  %s c:\\dir\\in.obj c:\\dir\\out.obj 0.2\n", cstr);
+    printf("  %s -t 0.2 c:\\dir\\in.obj c:\\dir\\out.obj\n", cstr);
 #else
-    printf("  %s ~/dir/in.obj ~/dir/out.obj 0.2\n", cstr);
-	printf("  %s ~/dir/in.obj ~/dir/out.obj 0.2 7 gaussian\n", cstr);
-	printf("  %s ~/dir/in.obj ~/dir/out.obj 0.2 7 triangular 0 1 1\n", cstr);
+    printf("  %s -t 0.2 ~/dir/in.obj ~/dir/out.obj\n", cstr);
+	printf("  %s -vn -t 0.1 -f gaussian -c 10,-20,0.5 -r 10 ~/dir/in.obj ~/dir/out.obj\n", cstr);
 #endif
+    printf(" Common Options:\n");
+    printf("  -h|?      Show help\n");
+    printf("  -v        Be verbose.\n");
+    printf("  -t <arg>  Total ratio of target's polygon count to source's (default: 0.5)\n");
+    printf("  -a <arg>  Aggressiveness; higher=faster lower=better decimation (default: 7.0)\n");
+    printf(" Function options for a spacially non-uniform reduction:\n");
+    printf("  -f <arg>  Function name\n");
+    printf("                ARG: square|triangular|gaussian (default: constFunc)\n");
+    printf("  -c <arg>  Comma-separated coordinate for center of function (default: 0,0,0)\n");
+    printf("            Use quotes if including spaces: \"(-1, 0, 100)\", \"[ 0.1, 4, 2 ]\"\n");
+    printf("  -r <arg>  Radius or boundary of function (default: 1.0)\n");
+    printf("  -s <arg>  Scale down specifically for each function (default: 1.0)\n");
+    printf("            square: region is retained by s, outside region is simplified fully\n");
+    printf("                square's ARG: -1 to 1; negative ARG equivalent to -n flag\n");
+    printf("            triangular: change radius by factor of 1/s\n");
+    printf("            gaussian: attenuate curve by factor of 1/s at radius;\n");
+    printf("                (default: 2.0); if s =< 1, default is used\n");
+    printf("                For reference, gaussian STD_DEVIATION = r/sqrt(2*ln(s))\n");
+    printf("  -p <arg>  Power to which the function is raised (default: 1.0)\n");
+    printf("                higher means function is more visibly conveyed\n");
+    printf("  -n        Negative form of function used.\n");
 } //showHelp()
 
 int getopt(int argc, char *const argv[], const char *optstring);
@@ -54,7 +61,7 @@ int getopt(int argc, char *const argv[], const char *optstring);
 int main(int argc, char *const argv[]) {
     printf("Mesh Simplification (C)2014 by Sven Forstmann in 2014, MIT License (%zu-bit)\n", sizeof(size_t)*8);
     
-    double reduceFraction = 1.0;
+    double reduceFraction = 0.5;
     double aggressiveness = 7.0;
     double (*func)(double, double, double, double, double, double, double, double, bool) = constantFunc;
     double coord[] = {0, 0, 0};
