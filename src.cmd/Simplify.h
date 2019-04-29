@@ -427,7 +427,7 @@ namespace Simplify
 					threshold = threshold0*square(
 					vertices[t.v[0]].p.x, vertices[t.v[0]].p.y, vertices[t.v[0]].p.z,
 					coord[0], coord[1], coord[2],
-					radius, 1.0, false);;
+					radius, 1.0, false);
 				}
 				} else {
 				if (func != constantFunc) {
@@ -495,18 +495,19 @@ namespace Simplify
 			deleted_triangles_after = deleted_triangles;
 			if(deleted_triangles_before == deleted_triangles_after)break;
 			if(regionDone) {
+				currentRegionCount = 0;
+				for (long long i = 0; i < (long long)(triangles.size()); i++) {
+            		if (inRegion(triangles[i], coord, radius)) currentRegionCount++;
+        		}
+				currentRegionRatio = double(currentRegionCount)/double(initialRegionCount);
 				long long initialOutsideCount = initialTotalCount - initialRegionCount;
 				long long currentOutsideCount = (long long)(triangles.size()) - currentRegionCount;
-				currentOutsideRatio = currentOutsideCount/initialOutsideCount;
+				currentOutsideRatio = double(currentOutsideCount)/double(initialOutsideCount);
 				if (currentOutsideRatio <= target_outside_ratio) break;
 			}
 		}
 		// clean up mesh
-		for (long long i = 0; i < (long long)(triangles.size()); i++) {
-            if (inRegion(triangles[i], coord, radius)) currentRegionCount++;
-        }
-		currentRegionRatio = double(currentRegionCount)/double(initialRegionCount);
-		if (regionDone) printf("Inside Region Reduction: %f, Outside Region Reduction: %f", currentRegionRatio, currentOutsideRatio);
+		if (regionDone) printf("Inside Region Reduction: %f, Outside Region Reduction: %f\n", currentRegionRatio, currentOutsideRatio);
 		// printf("Final tri count: %lli, Region inside radius reduced to %f\n", currentRegionCount, double(currentRegionCount)/double(initialRegionCount));
 		compact_mesh();
 	} //simplify_mesh()
