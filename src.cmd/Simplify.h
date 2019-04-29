@@ -334,6 +334,13 @@ namespace Simplify
 	void update_triangles(int i0,Vertex &v,std::vector<int> &deleted,int &deleted_triangles);
 	void update_mesh(int iteration);
 	void compact_mesh();
+	long long initialTotalCount = 0;
+	long long initialRegionCount = 0;
+	long long currentRegionCount = 0;
+	double target_region_ratio;
+	double target_outside_ratio;
+	bool inRegion(Triangle &t, double coord[], double radius);
+	int countInitialRegion(double coord[], double radius);
 	//
 	// Main simplification function
 	//
@@ -345,7 +352,7 @@ namespace Simplify
 
 	void simplify_mesh(double coord[3], int target_count, double agressiveness=7, bool verbose=false,
 		double (*func)(double, double, double, double, double, double, double, double, bool)=constantFunc,
-		double radius=def_radius, double scale=def_scale, double power=1, bool isneg=false)
+		double radius=def_radius, double scale=def_scale, double power=1, bool isneg=false, bool doRegionSimplification=false)
 	{
 		// init
 		loopi(0,triangles.size())
@@ -359,13 +366,24 @@ namespace Simplify
 		int deleted_triangles_after=-1;
 		std::vector<int> deleted0,deleted1;
 		int triangle_count=triangles.size();
+		bool regionDone = false;
 		//int iteration = 0;
 		//loop(iteration,0,100)
 		for (int iteration = 0; iteration < 1000; iteration ++)
 		{
 			deleted_triangles_before = deleted_triangles;
 			if(triangle_count-deleted_triangles<=target_count)break;
-
+			currentRegionCount = 0;
+			if (doRegionSimplification) {
+				for (long long i = 0; i < (long long)(triangles.size()); i++) {
+            		if (inRegion(triangles[i], coord, radius)) currentRegionCount++;
+        		}
+				double currentRegionRatio = double(currentRegionCount)/double(initialRegionCount);
+				if(currentRegionRatio <= target_region_ratio) {
+					printf("region ratio: %f\n", currentRegionRatio);
+					regionDone = true;
+				}
+			}
 			// update mesh once in a while
 			if(iteration%5==0)
 			{
@@ -386,12 +404,30 @@ namespace Simplify
 			// target number of triangles reached ? Then break
 			if ((verbose) && (iteration%5==0)) {
 				printf("iteration %d - triangles %d threshold %g\n",iteration,triangle_count-deleted_triangles, threshold0);
+				// printf(" triangle.size(): %f\n", double(triangles.size()));
+				// printf(" Count: %lli, Region inside radius reduced to %f\n", currentRegionCount, double(currentRegionCount)/double(initialRegionCount));
 			}
 
 			// remove vertices & mark deleted triangles
 			loopi(0,triangles.size())
 			{
 				Triangle &t=triangles[i];
+				if (regionDone) {
+					if (func != constantFunc) {
+					threshold = threshold0*pow(func(
+					vertices[t.v[0]].p.x, vertices[t.v[0]].p.y, vertices[t.v[0]].p.z,
+					coord[0], coord[1], coord[2],
+					radius, scale, isneg), power)*square(
+					vertices[t.v[0]].p.x, vertices[t.v[0]].p.y, vertices[t.v[0]].p.z,
+					coord[0], coord[1], coord[2],
+					radius, 1.0, false);
+				} else {
+					threshold = threshold0*square(
+					vertices[t.v[0]].p.x, vertices[t.v[0]].p.y, vertices[t.v[0]].p.z,
+					coord[0], coord[1], coord[2],
+					radius, 1.0, false);;
+				}
+				} else {
 				if (func != constantFunc) {
 					threshold = threshold0*pow(func(
 					vertices[t.v[0]].p.x, vertices[t.v[0]].p.y, vertices[t.v[0]].p.z,
@@ -399,6 +435,7 @@ namespace Simplify
 					radius, scale, isneg), power);
 				} else {
 					threshold = threshold0;
+				}
 				}
 				if(t.err[3]>threshold) continue;
 				if(t.deleted) continue;
@@ -455,8 +492,14 @@ namespace Simplify
 			}
 			deleted_triangles_after = deleted_triangles;
 			if(deleted_triangles_before == deleted_triangles_after)break;
+			if(regionDone) {
+				long long initialOutsideCount = initialTotalCount - initialRegionCount;
+				long long currentOutsideCount = (long long)(triangles.size()) - currentRegionCount;
+				if (currentOutsideCount/initialOutsideCount <= target_outside_ratio) break;
+			}
 		}
 		// clean up mesh
+		// printf("Final tri count: %lli, Region inside radius reduced to %f\n", currentRegionCount, double(currentRegionCount)/double(initialRegionCount));
 		compact_mesh();
 	} //simplify_mesh()
 
@@ -1042,5 +1085,17 @@ namespace Simplify
 		}
 		fclose(file);
 	}
+
+	// Is triangle in region specified by center coordinate and radius?
+	bool inRegion(Triangle &t, double coord[], double radius) {
+		bool inReg = false;
+		for (int i = 0; i < 3; i++) {
+    		if (sqrt(pow(vertices[t.v[i]].p.x-coord[0], 2.0) + pow(vertices[t.v[i]].p.y-coord[1], 2.0) + pow(vertices[t.v[i]].p.z-coord[2], 2.0)) <= radius)
+				inReg = true;
+			else 
+				inReg = false;
+		}
+		return inReg;
+    }
 };
 ///////////////////////////////////////////

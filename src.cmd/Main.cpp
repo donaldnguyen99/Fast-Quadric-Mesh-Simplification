@@ -35,12 +35,15 @@ void showHelp(char *const argv[]) {
     printf("  -h|?      Show help\n");
     printf("  -v        Be verbose.\n");
     printf("  -t <arg>  Total ratio of target's polygon count to source's (default: 0.5)\n");
+    printf("  -T <arg1>,<arg2>  Region INSIDE radius will be reduced by ratio arg1. Region\n");
+    printf("            OUTSIDE radius by arg2. -t option will be ignored.\n");
+    printf("            Example: 0.8,0.1   \"( 0.1, 0.01 )\" (default: 0.5,0.5)\n");
     printf("  -a <arg>  Aggressiveness; higher=faster lower=better decimation (default: 7.0)\n");
     printf(" Function options for a spacially non-uniform reduction:\n");
     printf("  -f <arg>  Function name\n");
     printf("                ARG: square|triangular|gaussian (default: constFunc)\n");
     printf("  -c <arg>  Comma-separated coordinate for center of function (default: 0,0,0)\n");
-    printf("            Use quotes if including spaces: \"(-1, 0, 100)\", \"[ 0.1, 4, 2 ]\"\n");
+    printf("            Use quotes if including spaces: \"(-1, 0, 100)\"   \"[ 0.1, 4, 2 ]\"\n");
     printf("  -r <arg>  Radius or boundary of function (default: 1.0)\n");
     printf("  -s <arg>  Scale down specifically for each function (default: 1.0)\n");
     printf("            square: region is retained by s, outside region is simplified fully\n");
@@ -68,11 +71,12 @@ int main(int argc, char *const argv[]) {
     double radius = 1.0;
     double scale = 1.0;
     double power = 1.0;
+    bool doRegionSimplification = false;
     bool isVerbose = false, isNegative = false;
 
     int c;
 	char *pcoord;
-    const char *optstring = "t:a:f:c:r:s:p:vnh";
+    const char *optstring = "t:a:f:c:r:s:p:R:vnh";
     while ((c = getopt(argc, argv, optstring)) != -1) {
         switch (c) {
         case 't':
@@ -83,6 +87,20 @@ int main(int argc, char *const argv[]) {
                 printf("Ratio must be BETWEEN zero and one.\n");
                 return EXIT_FAILURE;
             }
+            break;
+        case 'T':
+            Simplify::target_region_ratio = atof(strtok(optarg, "{[( ,)]}"));
+            Simplify::target_outside_ratio = atof(strtok(NULL, "{[( ,)]}"));
+            if (Simplify::target_region_ratio > 1) {
+                Simplify::target_region_ratio = 0.5;
+                printf("Warning: Region's ratio will use default: 0.5\n");
+            }
+            if (Simplify::target_outside_ratio > 1) {
+                Simplify::target_outside_ratio = 0.5;
+                printf("Warning: Outside Region's ratio will use default: 0.5\n");
+            }
+            reduceFraction = min(double(Simplify::target_region_ratio), double(Simplify::target_outside_ratio));
+            doRegionSimplification = true;
             break;
         case 'a':
             aggressiveness = atof(optarg);
@@ -141,6 +159,14 @@ int main(int argc, char *const argv[]) {
 	Simplify::load_obj(argv[optind]);
 	if ((Simplify::triangles.size() < 3) || (Simplify::vertices.size() < 3))
 		return EXIT_FAILURE;
+    if (doRegionSimplification == true) {
+        Simplify::initialRegionCount = 0;
+        for (long long i = 0; i < (long long)(Simplify::triangles.size()); i++) {
+            if (Simplify::inRegion(Simplify::triangles[i], coord, radius)) {
+                Simplify::initialRegionCount++;
+            }
+        }
+    }
 	int target_count = round((float)Simplify::triangles.size() * reduceFraction);
     if (target_count < 4) {
 		printf("Object will not survive such extreme decimation\n");
@@ -149,7 +175,8 @@ int main(int argc, char *const argv[]) {
 	clock_t start = clock();
 	printf("Input: %zu vertices, %zu triangles (target %d)\n", Simplify::vertices.size(), Simplify::triangles.size(), target_count);
 	int startSize = Simplify::triangles.size();
-    Simplify::simplify_mesh(coord, target_count, aggressiveness, isVerbose, func, radius, scale, power, isNegative);
+    Simplify::initialTotalCount = (long long)(Simplify::triangles.size());
+    Simplify::simplify_mesh(coord, target_count, aggressiveness, isVerbose, func, radius, scale, power, isNegative, doRegionSimplification);
 	//Simplify::simplify_mesh_lossless( false);
 	if ( Simplify::triangles.size() >= (size_t) startSize) {
 		printf("Unable to reduce mesh.\n");
