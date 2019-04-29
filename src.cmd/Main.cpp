@@ -76,7 +76,7 @@ int main(int argc, char *const argv[]) {
 
     int c;
 	char *pcoord;
-    const char *optstring = "t:a:f:c:r:s:p:R:vnh";
+    const char *optstring = "t:a:f:c:r:s:p:T:vnh";
     while ((c = getopt(argc, argv, optstring)) != -1) {
         switch (c) {
         case 't':
