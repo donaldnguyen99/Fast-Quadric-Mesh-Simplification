@@ -337,6 +337,8 @@ namespace Simplify
 	long long initialTotalCount = 0;
 	long long initialRegionCount = 0;
 	long long currentRegionCount = 0;
+	double currentRegionRatio;
+	double currentOutsideRatio;
 	double target_region_ratio;
 	double target_outside_ratio;
 	bool inRegion(Triangle &t, double coord[], double radius);
@@ -378,9 +380,9 @@ namespace Simplify
 				for (long long i = 0; i < (long long)(triangles.size()); i++) {
             		if (inRegion(triangles[i], coord, radius)) currentRegionCount++;
         		}
-				double currentRegionRatio = double(currentRegionCount)/double(initialRegionCount);
+				currentRegionRatio = double(currentRegionCount)/double(initialRegionCount);
 				if(currentRegionRatio <= target_region_ratio) {
-					printf("region ratio: %f\n", currentRegionRatio);
+					// printf("Inside Region Ratio: %f\n", currentRegionRatio);
 					regionDone = true;
 				}
 			}
@@ -495,10 +497,16 @@ namespace Simplify
 			if(regionDone) {
 				long long initialOutsideCount = initialTotalCount - initialRegionCount;
 				long long currentOutsideCount = (long long)(triangles.size()) - currentRegionCount;
-				if (currentOutsideCount/initialOutsideCount <= target_outside_ratio) break;
+				currentOutsideRatio = currentOutsideCount/initialOutsideCount;
+				if (currentOutsideRatio <= target_outside_ratio) break;
 			}
 		}
 		// clean up mesh
+		for (long long i = 0; i < (long long)(triangles.size()); i++) {
+            if (inRegion(triangles[i], coord, radius)) currentRegionCount++;
+        }
+		currentRegionRatio = double(currentRegionCount)/double(initialRegionCount);
+		if (regionDone) printf("Inside Region Reduction: %f, Outside Region Reduction: %f", currentRegionRatio, currentOutsideRatio);
 		// printf("Final tri count: %lli, Region inside radius reduced to %f\n", currentRegionCount, double(currentRegionCount)/double(initialRegionCount));
 		compact_mesh();
 	} //simplify_mesh()
