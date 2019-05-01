@@ -1126,7 +1126,8 @@ namespace Simplify
 				t.material = material;
 				triangles.push_back(t);
 				++line_index;
-				if(line_index % 100000 == 0) printf("Lines read: %d, %.2lf%%\n", line_index, 100.0*double(line_index)/double(totallines));
+				if(line_index % 100000 == 0) printf("Lines read: %d\n", line_index);
+				//printf("Lines read: %d, %.2lf%%\n", line_index, 100.0*double(line_index)/double(totallines));
 			}
 		}
 		fclose(fn);
