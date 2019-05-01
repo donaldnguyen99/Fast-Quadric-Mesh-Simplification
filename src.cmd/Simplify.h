@@ -1064,9 +1064,10 @@ namespace Simplify
 		double quality;
 		int line_index = 0; // .obj is 1-based, but Simplify.h vectors are 0-based
 		fgets(line, 1000, fn);
-		double totallines;
-		if(verbose && sscanf(line,"%lf %lf",&totallines,&magnification)==2)
+		double totallines, moreArgs;
+		if(verbose && sscanf(line,"%lf %lf %lf",&totallines,&magnification,&moreArgs)==2)
 			printf("tri10 file header:\n Polygons: %lf, Magnification (ignored): %lf\n", totallines, magnification);
+		rewind(fn);
 		printf("Loading polygons\n");
 		while(fgets(line, 1000, fn) != NULL) {
 			// if line not 10 doubles then continue
