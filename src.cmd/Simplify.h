@@ -901,7 +901,7 @@ namespace Simplify
 	}
 
 	//Option : Load OBJ
-	void load_obj(const char* filename, bool process_uv=false){
+	void load_obj(const char* filename, bool verbose=false, int verboselines=10000, bool process_uv=false){
 		vertices.clear();
 		triangles.clear();
 		//printf ( "Loading Objects %s ... \n",filename);
@@ -920,7 +920,7 @@ namespace Simplify
 		std::map<std::string, int> material_map;
 		std::vector<vec3f> uvs;
 		std::vector<std::vector<int> > uvMap;
-
+		int line_index = 0;
 		while(fgets( line, 1000, fn ) != NULL)
 		{
 			Vertex v;
@@ -1029,6 +1029,9 @@ namespace Simplify
 					//state ='f';
 				}
 			}
+			++line_index;
+        	if (verbose && (line_index % verboselines == 0))
+            	printf("obj lines read: %d\n", line_index);
 		}
 
 		if ( process_uv && uvs.size() )
@@ -1046,7 +1049,7 @@ namespace Simplify
 	} // load_obj()
 
 	// Option: Load Tri10	ex.	v0x	v0y	v0z	v1x v1y v1z v2x v2y v2z q
-	void load_tri10(const char* filename, bool verbose=false) {
+	void load_tri10(const char* filename, bool verbose=false, int verboselines=10000) {
 		printf("Loading tri10\n");
 		vertices.clear();
 		triangles.clear();
@@ -1126,7 +1129,7 @@ namespace Simplify
 				t.material = material;
 				triangles.push_back(t);
 				++line_index;
-				if(line_index % 100000 == 0) printf("Lines read: %d\n", line_index);
+				if(line_index % verboselines == 0) printf("tri10 lines read: %d\n", line_index);
 				//printf("Lines read: %d, %.2lf%%\n", line_index, 100.0*double(line_index)/double(totallines));
 			}
 		}
@@ -1135,7 +1138,7 @@ namespace Simplify
 
 	// Optional : Store as OBJ
 
-	void write_obj(const char* filename)
+	void write_obj(const char* filename, bool verbose=false, int verboselines=10000)
 	{
 		FILE *file=fopen(filename, "w");
 		int cur_material = -1;
@@ -1150,8 +1153,10 @@ namespace Simplify
 		{
 			fprintf(file, "mtllib %s\n", mtllib.c_str());
 		}
+    	double totalvertices = double(vertices.size());
 		loopi(0,vertices.size())
 		{
+			if(verbose && (i%verboselines==0)) printf("Vertices written: %d, %.2lf%% of vertices\n", i, double(i)/totalvertices*100);
 			//fprintf(file, "v %lf %lf %lf\n", vertices[i].p.x,vertices[i].p.y,vertices[i].p.z);
 			fprintf(file, "v %g %g %g\n", vertices[i].p.x,vertices[i].p.y,vertices[i].p.z); //more compact: remove trailing zeros
 		}
@@ -1165,8 +1170,10 @@ namespace Simplify
 			}
 		}
 		int uv = 1;
+		double totaltriangles = double(triangles.size());
 		loopi(0,triangles.size()) if(!triangles[i].deleted)
 		{
+			if(verbose && (i%verboselines==0)) printf("Triangles written: %d, %.2lf%% of triangles\n", i, double(i)/totaltriangles*100);
 			if (triangles[i].material != cur_material)
 			{
 				cur_material = triangles[i].material;
@@ -1181,6 +1188,27 @@ namespace Simplify
 			{
 				fprintf(file, "f %d %d %d\n", triangles[i].v[0]+1, triangles[i].v[1]+1, triangles[i].v[2]+1);
 			}
+			//fprintf(file, "f %d// %d// %d//\n", triangles[i].v[0]+1, triangles[i].v[1]+1, triangles[i].v[2]+1); //more compact: remove trailing zeros
+		}
+		fclose(file);
+	}
+
+	// Option: Write Tri10 
+	void write_tri10(const char *filename, bool verbose = false, int verboselines = 10000) {
+		FILE *file = fopen(filename, "w");
+		if (!file) {
+			printf("write_obj: can't write data file \"%s\".\n", filename);
+			exit(0);
+		}
+
+		double quality = 0.0;
+		double totalsize = double(triangles.size());
+		loopi(0, triangles.size()) {
+			fprintf(file, " %15g %15g %15g %15g %15g %15g %15g %15g %15g %15g\n",
+			vertices[triangles[i].v[0]].p.x, vertices[triangles[i].v[0]].p.y, vertices[triangles[i].v[0]].p.z,
+			vertices[triangles[i].v[1]].p.x, vertices[triangles[i].v[1]].p.y, vertices[triangles[i].v[1]].p.z,
+			vertices[triangles[i].v[2]].p.x, vertices[triangles[i].v[2]].p.y, vertices[triangles[i].v[2]].p.z, quality);
+			if (verbose && (i%verboselines==0)) printf("tri10 lines written: %d, %.2lf%%\n", i, double(i)/totalsize*100);
 			//fprintf(file, "f %d// %d// %d//\n", triangles[i].v[0]+1, triangles[i].v[1]+1, triangles[i].v[2]+1); //more compact: remove trailing zeros
 		}
 		fclose(file);

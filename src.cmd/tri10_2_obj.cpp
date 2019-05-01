@@ -1,0 +1,203 @@
+// tri10 format
+/*
+<polygon_count> <factor>
+    <v0x>   <v0y>   <v0z>   <v1x>   <v1y>   <v1z>   <v2x>   <v2y>   <v2z>   <ele>
+    ...
+*/
+
+// obj format
+/*
+v <x> <y> <z>
+...
+f <i0> <i1> <i2>
+...
+*/
+
+#include "Fast-Quadric-Mesh-Simplification/src.cmd/Simplify.h"
+#include <stdio.h>
+#include <time.h>  // clock_t, clock, CLOCKS_PER_SEC
+#include <unistd.h>
+using namespace Simplify;
+
+const char *filename;
+bool process_uv = false;
+
+void loadfromtri10(const char *filename, bool verbose = false, int verboselines = 10000) {
+    if (verbose) printf("Loading tri10\n");
+    vertices.clear();
+    triangles.clear();
+    //printf ( "Loading Objects %s ... \n",filename);
+    FILE *fn;
+    if (filename == NULL)
+        return;
+    if ((char)filename[0] == 0)
+        return;
+    if ((fn = fopen(filename, "rb")) == NULL) {
+        printf("File %s not found!\n", filename);
+        return;
+    }
+    char line[1000];
+    memset(line, 0, 1000);
+    int line_index = 0; // .obj is 1-based, but Simplify.h vectors are 0-based
+    fgets(line, 1000, fn);
+    int material = -1;
+    double totallines, moreArgs, quality;
+    if (verbose && sscanf(line, "%lf %lf %lf", &totallines, &magnification, &moreArgs) == 2)
+        printf("tri10 file header:\n Polygons: %g, Magnification (ignored): %g\n", totallines, magnification);
+    rewind(fn);
+    if (verbose) printf("Loading polygons\n");
+    while (fgets(line, 1000, fn) != NULL) {
+        // if line not 10 doubles then continue
+        Vertex v0, v1, v2;
+        Triangle t;
+        if (sscanf(line, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf", // "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf", // "%d %d %d %d %d %d %d %d %d %d",
+                   &v0.p.x, &v0.p.y, &v0.p.z,
+                   &v1.p.x, &v1.p.y, &v1.p.z,
+                   &v2.p.x, &v2.p.y, &v2.p.z, &quality) == 10) {
+
+            // Find vertex from vector of vertices, use existing vertex if found
+            bool v0Found = false, v1Found = false, v2Found = false;
+            for (std::vector<Vertex>::reverse_iterator it = vertices.rbegin(); it != vertices.rend(); ++it) {
+                int index = std::distance(vertices.begin(), it.base()) - 1;
+                // printf("i: %i, val: %lf\n", index, *it);
+                if (((*it).p.x == v0.p.x) && ((*it).p.y == v0.p.y) && ((*it).p.y == v0.p.y)) {
+                    t.v[0] = index;
+                    v0Found = true;
+                    break;
+                }
+            }
+            for (std::vector<Vertex>::reverse_iterator it = vertices.rbegin(); it != vertices.rend(); ++it) {
+                int index = std::distance(vertices.begin(), it.base()) - 1;
+                // printf("i: %i, val: %lf\n", index, *it);
+                if (((*it).p.x == v1.p.x) && ((*it).p.y == v1.p.y) && ((*it).p.y == v1.p.y)) {
+                    t.v[1] = index;
+                    v1Found = true;
+                    break;
+                }
+            }
+            for (std::vector<Vertex>::reverse_iterator it = vertices.rbegin(); it != vertices.rend(); ++it) {
+                int index = std::distance(vertices.begin(), it.base()) - 1;
+                // printf("i: %i, val: %lf\n", index, *it);
+                if (((*it).p.x == v2.p.x) && ((*it).p.y == v2.p.y) && ((*it).p.y == v2.p.y)) {
+                    t.v[2] = index;
+                    v2Found = true;
+                    break;
+                }
+            }
+
+            // After search, push_back vertex if necessary
+            if (!v0Found) {
+                vertices.push_back(v0);
+                t.v[0] = int(vertices.size()) - 1;
+            }
+            if (!v1Found) {
+                vertices.push_back(v1);
+                t.v[1] = int(vertices.size()) - 1;
+            }
+            if (!v2Found) {
+                vertices.push_back(v2);
+                t.v[2] = int(vertices.size()) - 1;
+            }
+
+            t.attr = 0;
+            t.material = material;
+            triangles.push_back(t);
+            ++line_index;
+            if (verbose && (line_index % verboselines == 0))
+                printf("tri10 lines read: %d\n", line_index);
+                //printf("Lines read: %d, %.2lf%%\n", line_index, 100.0*double(line_index)/double(totallines));
+            
+        }
+    }
+    fclose(fn);
+}
+
+void write2obj(const char *filename, bool verbose, int verboselines = 10000) {
+    FILE *file = fopen(filename, "w");
+    if (!file) {
+        printf("write_obj: can't write data file \"%s\".\n", filename);
+        exit(0);
+    }
+
+    double totalvertices = double(vertices.size());
+    loopi(0, vertices.size()) {
+        if(verbose && (i%verboselines==0)) printf("obj vertices written: %d, %.2lf%% of vertices\n", i, double(i)/totalvertices*100);
+        //fprintf(file, "v %lf %lf %lf\n", vertices[i].p.x,vertices[i].p.y,vertices[i].p.z);
+        fprintf(file, "v %g %g %g\n", vertices[i].p.x, vertices[i].p.y, vertices[i].p.z); //more compact: remove trailing zeros
+    }
+
+    double totaltriangles = double(triangles.size());
+    loopi(0, triangles.size()) {
+        if(verbose && (i%verboselines==0)) printf("obj triangles written: %d, %.2lf%% of triangles\n", i, double(i)/totaltriangles*100);
+        fprintf(file, "f %d %d %d\n", triangles[i].v[0] + 1, triangles[i].v[1] + 1, triangles[i].v[2] + 1);
+        //fprintf(file, "f %d// %d// %d//\n", triangles[i].v[0]+1, triangles[i].v[1]+1, triangles[i].v[2]+1); //more compact: remove trailing zeros
+    }
+    fclose(file);
+}
+
+int getopt(int argc, char *const argv[], const char *optstring);
+
+int main(int argc, char *const argv[]) {
+    const char *cstr = (argv[0]);
+    bool isVerbose = false;
+    int verboselines = 10000;
+    bool helpshown = false;
+
+    int c;
+    const char *optstring = "vV:h";
+    while ((c = getopt(argc, argv, optstring)) != -1) {
+        switch (c) {
+        case 'v':
+            isVerbose = true;
+            break;
+        case 'V':
+            isVerbose = true;
+            verboselines = atof(optarg);
+            if (verboselines <= 0) verboselines = 10000;
+            break;
+        case 'h':
+        default:
+            helpshown = true;
+            printf("Usage: %s [-v|-h|-?|[-V <verbose_interval>]] inputfile.tri10 outputfile.obj\n", cstr);
+            break;
+        }
+    }
+    if (argc - optind < 2) {
+        if(!helpshown) printf("Usage: %s [-v|-h|-?|[-V <verbose_interval>]] inputfile.tri10 outputfile.obj\n", cstr);
+        return EXIT_SUCCESS;
+    }
+    clock_t load_start = clock();
+    std::string filenameIn(argv[optind]);
+    std::string filenameOut(argv[optind+1]);
+    std::string::size_type idx;
+    std::string::size_type outidx;
+    idx = filenameIn.rfind('.');
+    outidx = filenameOut.rfind('.');
+    bool doload = false, dowrite = false;
+    if (idx != std::string::npos) {
+        std::string extensionIn = filenameIn.substr(idx+1);
+        if (extensionIn == "tri10") doload = true;
+        else {
+            printf("Cannot load file with extension .%s\n", extensionIn.c_str());
+            return EXIT_FAILURE;
+        }
+    } else {
+        printf("Input file's extension not found.\n");
+        return EXIT_FAILURE;
+    }
+    if (outidx != std::string::npos) {
+        std::string extensionOut = filenameOut.substr(outidx+1);
+        if (extensionOut == "obj") dowrite = true;
+        else {
+            printf("Cannot write to file with extension .%s\n", extensionOut.c_str());
+            return EXIT_FAILURE;
+        }
+    } else {
+        printf("Output file's extension not found.\n");
+        return EXIT_FAILURE;
+    }
+    if(doload) loadfromtri10(argv[optind], isVerbose, verboselines);
+    if(dowrite) write2obj(argv[optind+1], isVerbose, verboselines);
+    if(isVerbose) printf("Finished %s in %.4f sec)\n", cstr, ((float)(clock()-load_start))/CLOCKS_PER_SEC );
+	return EXIT_SUCCESS;
+}

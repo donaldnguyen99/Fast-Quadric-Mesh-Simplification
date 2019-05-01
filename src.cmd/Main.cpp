@@ -36,6 +36,7 @@ void showHelp(char *const argv[]) {
     printf(" Common Options:\n");
     printf("  -h|?      Show help\n");
     printf("  -v        Be verbose.\n");
+    printf("  -V <arg>  Be verbose with details at every <arg> iterations (default: 10000)\n");
     printf("  -t <arg>  Total ratio of target's polygon count to source's (default: 0.5)\n");
     printf("  -T <arg1>,<arg2>  Region INSIDE radius will be reduced by ratio arg1. Region\n");
     printf("            OUTSIDE radius by arg2. -t option will be ignored.\n");
@@ -75,10 +76,11 @@ int main(int argc, char *const argv[]) {
     double power = 1.0;
     bool doRegionSimplification = false;
     bool isVerbose = false, isNegative = false;
+    int tempverboselines, verboselines = 10000;
 
     int c;
 	char *pcoord;
-    const char *optstring = "t:a:f:c:r:s:p:T:vnh";
+    const char *optstring = "t:a:f:c:r:s:p:T:V:vnh";
     while ((c = getopt(argc, argv, optstring)) != -1) {
         switch (c) {
         case 't':
@@ -141,6 +143,15 @@ int main(int argc, char *const argv[]) {
         case 'v':
             isVerbose = true;
             break;
+        case 'V':
+            isVerbose = true;
+            tempverboselines = atoi(optarg);
+            if (verboselines <= 0) {
+                printf("-V needs an valid argument, using default: 10000\n");
+                tempverboselines = verboselines;
+            }
+            verboselines = tempverboselines;
+            break;
         case 'n':
             isNegative = true;
             break;
@@ -160,15 +171,38 @@ int main(int argc, char *const argv[]) {
     }
     clock_t load_start = clock();
     std::string filenameIn(argv[optind]);
+    std::string filenameOut(argv[optind+1]);
     std::string::size_type idx;
+    std::string::size_type outidx;
     idx = filenameIn.rfind('.');
+    outidx = filenameOut.rfind('.');
+    bool doloadobj = false, doloadtri10 = false, dowriteobj = false, dowritetri10 = false;
     if (idx != std::string::npos) {
         std::string extensionIn = filenameIn.substr(idx+1);
-        if (extensionIn == "obj") Simplify::load_obj(argv[optind]);
-        else if (extensionIn == "tri10") Simplify::load_tri10(argv[optind], isVerbose);
+        if (extensionIn == "obj") doloadobj = true;
+        else if (extensionIn == "tri10") doloadtri10 = true;
+        else {
+            printf("Cannot load file with extension .%s\n", extensionIn.c_str());
+            return EXIT_FAILURE;
+        }
     } else {
         printf("Input file's extension not found.\n");
+        return EXIT_FAILURE;
     }
+    if (outidx != std::string::npos) {
+        std::string extensionOut = filenameOut.substr(outidx+1);
+        if (extensionOut == "obj") dowriteobj = true;
+        else if (extensionOut == "tri10") dowritetri10 = true;
+        else {
+            printf("Cannot write to file with extension .%s\n", extensionOut.c_str());
+            return EXIT_FAILURE;
+        }
+    } else {
+        printf("Output file's extension not found.\n");
+        return EXIT_FAILURE;
+    }
+    if (doloadobj && !doloadtri10) Simplify::load_obj(argv[optind], isVerbose, verboselines);
+    else if (doloadtri10 && !doloadobj) Simplify::load_tri10(argv[optind], isVerbose, verboselines);
     printf("File loaded in %.4f sec\n", ((float)(clock()-load_start))/CLOCKS_PER_SEC);
 	if ((Simplify::triangles.size() < 3) || (Simplify::vertices.size() < 3))
 		return EXIT_FAILURE;
@@ -195,7 +229,8 @@ int main(int argc, char *const argv[]) {
 		printf("Unable to reduce mesh.\n");
     	return EXIT_FAILURE;
 	}
-	Simplify::write_obj(argv[optind+1]);
+	if (dowriteobj && !dowritetri10) Simplify::write_obj(argv[optind+1], isVerbose, verboselines);
+    else if (dowritetri10 && !dowriteobj) Simplify::write_tri10(argv[optind+1], isVerbose, verboselines);
 	printf("Output: %zu vertices, %zu triangles (%f reduction; %.4f sec)\n",Simplify::vertices.size(), Simplify::triangles.size()
 		, (float)Simplify::triangles.size()/ (float) startSize  , ((float)(clock()-start))/CLOCKS_PER_SEC );
 	return EXIT_SUCCESS;
