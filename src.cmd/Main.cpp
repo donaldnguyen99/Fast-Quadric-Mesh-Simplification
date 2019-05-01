@@ -23,7 +23,9 @@
 void showHelp(char *const argv[]) {
     const char *cstr = (argv[0]);
     printf("Usage: %s [option...] inputfile outputfile\n", cstr);
-    printf("%s simplifies an triangular mesh .obj file using a quadric error metrics.\n", cstr);
+    printf("%s simplifies an triangular mesh .obj or .tri10 file using a quadric error\n", cstr);
+    printf("metrics; Input file can be either .obj or .tri10; output file is only in .obj\n");
+    printf(".tri10 files will take longer to load because duplicate vertices need to removed\n");
     printf(" Examples:\n");
 #if defined(_WIN64) || defined(_WIN32)
     printf("  %s -t 0.2 c:\\dir\\in.obj c:\\dir\\out.obj\n", cstr);
@@ -156,7 +158,18 @@ int main(int argc, char *const argv[]) {
         showHelp(argv);
         return EXIT_SUCCESS;
     }
-	Simplify::load_obj(argv[optind]);
+    clock_t load_start = clock();
+    std::string filenameIn(argv[optind]);
+    std::string::size_type idx;
+    idx = filenameIn.rfind('.');
+    if (idx != std::string::npos) {
+        std::string extensionIn = filenameIn.substr(idx+1);
+        if (extensionIn == "obj") Simplify::load_obj(argv[optind]);
+        else if (extensionIn == "tri10") Simplify::load_tri10(argv[optind], isVerbose);
+    } else {
+        printf("Input file's extension not found.\n");
+    }
+    printf("File loaded in %.4f sec\n", ((float)(clock()-load_start))/CLOCKS_PER_SEC);
 	if ((Simplify::triangles.size() < 3) || (Simplify::vertices.size() < 3))
 		return EXIT_FAILURE;
     if (doRegionSimplification == true) {

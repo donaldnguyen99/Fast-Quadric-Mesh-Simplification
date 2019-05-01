@@ -26,6 +26,7 @@
 #include <string>
 #include <math.h>
 #include <float.h> //FLT_EPSILON, DBL_EPSILON
+#include <algorithm>
 #include "Functions.h"
 
 // #define loopi(start_l,end_l) for ( int i=start_l;i<end_l;++i )
@@ -341,6 +342,7 @@ namespace Simplify
 	double currentOutsideRatio;
 	double target_region_ratio;
 	double target_outside_ratio;
+	double magnification;
 	bool inRegion(Triangle &t, double coord[], double radius);
 	int countInitialRegion(double coord[], double radius);
 	//
@@ -409,35 +411,35 @@ namespace Simplify
 				// printf(" triangle.size(): %f\n", double(triangles.size()));
 				// printf(" Count: %lli, Region inside radius reduced to %f\n", currentRegionCount, double(currentRegionCount)/double(initialRegionCount));
 			}
-
+			bool breakIteration = false;
 			// remove vertices & mark deleted triangles
 			loopi(0,triangles.size())
 			{
 				Triangle &t=triangles[i];
-				if (regionDone) {
+				if (doRegionSimplification && regionDone) {
 					if (func != constantFunc) {
-					threshold = threshold0*pow(func(
-					vertices[t.v[0]].p.x, vertices[t.v[0]].p.y, vertices[t.v[0]].p.z,
-					coord[0], coord[1], coord[2],
-					radius, scale, isneg), power)*square(
-					vertices[t.v[0]].p.x, vertices[t.v[0]].p.y, vertices[t.v[0]].p.z,
-					coord[0], coord[1], coord[2],
-					radius, 1.0, false);
+						threshold = threshold0*pow(func(
+						vertices[t.v[0]].p.x, vertices[t.v[0]].p.y, vertices[t.v[0]].p.z,
+						coord[0], coord[1], coord[2],
+						radius, scale, isneg), power)*square(
+						vertices[t.v[0]].p.x, vertices[t.v[0]].p.y, vertices[t.v[0]].p.z,
+						coord[0], coord[1], coord[2],
+						radius, 1.0, false);
+					} else {
+						threshold = threshold0*square(
+						vertices[t.v[0]].p.x, vertices[t.v[0]].p.y, vertices[t.v[0]].p.z,
+						coord[0], coord[1], coord[2],
+						radius, 1.0, false);
+					}
 				} else {
-					threshold = threshold0*square(
-					vertices[t.v[0]].p.x, vertices[t.v[0]].p.y, vertices[t.v[0]].p.z,
-					coord[0], coord[1], coord[2],
-					radius, 1.0, false);
-				}
-				} else {
-				if (func != constantFunc) {
-					threshold = threshold0*pow(func(
-					vertices[t.v[0]].p.x, vertices[t.v[0]].p.y, vertices[t.v[0]].p.z,
-					coord[0], coord[1], coord[2],
-					radius, scale, isneg), power);
-				} else {
-					threshold = threshold0;
-				}
+					if (func != constantFunc) {
+						threshold = threshold0*pow(func(
+						vertices[t.v[0]].p.x, vertices[t.v[0]].p.y, vertices[t.v[0]].p.z,
+						coord[0], coord[1], coord[2],
+						radius, scale, isneg), power);
+					} else {
+						threshold = threshold0;
+					}
 				}
 				if(t.err[3]>threshold) continue;
 				if(t.deleted) continue;
@@ -490,11 +492,11 @@ namespace Simplify
 					break;
 				}
 				// done?
-				if(triangle_count-deleted_triangles<=target_count)break;
+				if(!breakIteration && (triangle_count-deleted_triangles<=target_count)) breakIteration = true;
 			}
 			deleted_triangles_after = deleted_triangles;
-			if(deleted_triangles_before == deleted_triangles_after)break;
-			if(regionDone) {
+			if(deleted_triangles_before == deleted_triangles_after) printf("No triangles deleted yet.\n");
+			if(doRegionSimplification && regionDone) {
 				currentRegionCount = 0;
 				for (long long i = 0; i < (long long)(triangles.size()); i++) {
             		if (inRegion(triangles[i], coord, radius)) currentRegionCount++;
@@ -505,9 +507,10 @@ namespace Simplify
 				currentOutsideRatio = double(currentOutsideCount)/double(initialOutsideCount);
 				if (currentOutsideRatio <= target_outside_ratio) break;
 			}
+			if(breakIteration) break;
 		}
 		// clean up mesh
-		if (regionDone) printf("Inside Region Reduction: %f, Outside Region Reduction: %f\n", currentRegionRatio, currentOutsideRatio);
+		if (doRegionSimplification && regionDone) printf("Inside Region Reduction: %f, Outside Region Reduction: %f\n", currentRegionRatio, currentOutsideRatio);
 		// printf("Final tri count: %lli, Region inside radius reduced to %f\n", currentRegionCount, double(currentRegionCount)/double(initialRegionCount));
 		compact_mesh();
 	} //simplify_mesh()
@@ -1041,6 +1044,92 @@ namespace Simplify
 
 		//printf("load_obj: vertices = %lu, triangles = %lu, uvs = %lu\n", vertices.size(), triangles.size(), uvs.size() );
 	} // load_obj()
+
+	// Option: Load Tri10	ex.	v0x	v0y	v0z	v1x v1y v1z v2x v2y v2z q
+	void load_tri10(const char* filename, bool verbose=false) {
+		printf("Loading tri10\n");
+		vertices.clear();
+		triangles.clear();
+		//printf ( "Loading Objects %s ... \n",filename);
+		FILE *fn;
+		if (filename == NULL) return;
+		if ((char)filename[0] == 0) return;
+		if ((fn = fopen(filename, "rb")) == NULL) {
+			printf("File %s not found!\n", filename);
+			return;
+		}
+		char line[1000];
+		memset(line, 0, 1000);
+		int material = -1;
+		double quality;
+		int line_index = 0; // .obj is 1-based, but Simplify.h vectors are 0-based
+		fgets(line, 1000, fn);
+		double totallines;
+		if(verbose && sscanf(line,"%lf %lf",&totallines,&magnification)==2)
+			printf("tri10 file header:\n Polygons: %lf, Magnification (ignored): %lf\n", totallines, magnification);
+		printf("Loading polygons\n");
+		while(fgets(line, 1000, fn) != NULL) {
+			// if line not 10 doubles then continue
+			Vertex v0, v1, v2;
+			Triangle t;
+			if(sscanf(line,"%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf", // "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf", // "%d %d %d %d %d %d %d %d %d %d",
+			&v0.p.x, &v0.p.y, &v0.p.z,
+			&v1.p.x, &v1.p.y, &v1.p.z,
+			&v2.p.x, &v2.p.y, &v2.p.z, &quality)==10) {
+				
+				// Find vertex from vector of vertices, use existing vertex if found
+				bool v0Found = false, v1Found = false, v2Found = false;
+                for (auto it = vertices.rbegin(); it != vertices.rend(); ++it) {
+                    int index = std::distance(vertices.begin(), it.base()) - 1;
+					// printf("i: %i, val: %lf\n", index, *it);
+					if (((*it).p.x == v0.p.x) && ((*it).p.y == v0.p.y) && ((*it).p.y == v0.p.y)) {
+						t.v[0] = index;
+						v0Found = true;
+						break;
+					}
+				}
+				for (auto it = vertices.rbegin(); it != vertices.rend(); ++it) {
+                    int index = std::distance(vertices.begin(), it.base()) - 1;
+					// printf("i: %i, val: %lf\n", index, *it);
+					if (((*it).p.x == v1.p.x) && ((*it).p.y == v1.p.y) && ((*it).p.y == v1.p.y)) {
+						t.v[1] = index;
+						v1Found = true;
+						break;
+					}
+				}
+				for (auto it = vertices.rbegin(); it != vertices.rend(); ++it) {
+                    int index = std::distance(vertices.begin(), it.base()) - 1;
+					// printf("i: %i, val: %lf\n", index, *it);
+					if (((*it).p.x == v2.p.x) && ((*it).p.y == v2.p.y) && ((*it).p.y == v2.p.y)) {
+						t.v[2] = index;
+						v2Found = true;
+						break;
+					}
+				}
+
+				// After search, push_back vertex if necessary
+				if (!v0Found) {
+					vertices.push_back(v0);
+					t.v[0] = int(vertices.size())-1;
+				}
+				if (!v1Found) {
+					vertices.push_back(v1);
+					t.v[1] = int(vertices.size())-1;
+				}
+				if (!v2Found) {
+					vertices.push_back(v2);
+					t.v[2] = int(vertices.size())-1;
+				}
+				
+				t.attr = 0;
+				t.material = material;
+				triangles.push_back(t);
+				++line_index;
+				if(line_index % 100000 == 0) printf("Lines read: %d, %.2lf%%\n", line_index, 100.0*double(line_index)/double(totallines));
+			}
+		}
+		fclose(fn);
+	}
 
 	// Optional : Store as OBJ
 
