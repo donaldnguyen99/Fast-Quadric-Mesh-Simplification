@@ -1079,7 +1079,7 @@ namespace Simplify
 				
 				// Find vertex from vector of vertices, use existing vertex if found
 				bool v0Found = false, v1Found = false, v2Found = false;
-                for (auto it = vertices.rbegin(); it != vertices.rend(); ++it) {
+                for (std::vector<Vertex>::reverse_iterator it = vertices.rbegin(); it != vertices.rend(); ++it) {
                     int index = std::distance(vertices.begin(), it.base()) - 1;
 					// printf("i: %i, val: %lf\n", index, *it);
 					if (((*it).p.x == v0.p.x) && ((*it).p.y == v0.p.y) && ((*it).p.y == v0.p.y)) {
@@ -1088,7 +1088,7 @@ namespace Simplify
 						break;
 					}
 				}
-				for (auto it = vertices.rbegin(); it != vertices.rend(); ++it) {
+				for (std::vector<Vertex>::reverse_iterator it = vertices.rbegin(); it != vertices.rend(); ++it) {
                     int index = std::distance(vertices.begin(), it.base()) - 1;
 					// printf("i: %i, val: %lf\n", index, *it);
 					if (((*it).p.x == v1.p.x) && ((*it).p.y == v1.p.y) && ((*it).p.y == v1.p.y)) {
@@ -1097,7 +1097,7 @@ namespace Simplify
 						break;
 					}
 				}
-				for (auto it = vertices.rbegin(); it != vertices.rend(); ++it) {
+				for (std::vector<Vertex>::reverse_iterator it = vertices.rbegin(); it != vertices.rend(); ++it) {
                     int index = std::distance(vertices.begin(), it.base()) - 1;
 					// printf("i: %i, val: %lf\n", index, *it);
 					if (((*it).p.x == v2.p.x) && ((*it).p.y == v2.p.y) && ((*it).p.y == v2.p.y)) {
