@@ -13,7 +13,7 @@ f <i0> <i1> <i2>
 ...
 */
 
-#include "Fast-Quadric-Mesh-Simplification/src.cmd/Simplify.h"
+#include "Simplify.h"
 #include <stdio.h>
 #include <time.h>  // clock_t, clock, CLOCKS_PER_SEC
 #include <unistd.h>
