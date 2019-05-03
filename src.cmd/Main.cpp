@@ -58,6 +58,8 @@ void showHelp(char *const argv[]) {
     printf("  -p <arg>  Power to which the function is raised (default: 1.0)\n");
     printf("                higher means function is more visibly conveyed\n");
     printf("  -n        Negative form of function used.\n");
+    printf("  -b <arg>  Breaking all iterations if selected number of consecutive iterations\n");
+    printf("            failed to delete triangles. (default: 1000)\n");
 } //showHelp()
 
 int getopt(int argc, char *const argv[], const char *optstring);
@@ -80,7 +82,7 @@ int main(int argc, char *const argv[]) {
 
     int c;
 	char *pcoord;
-    const char *optstring = "t:a:f:c:r:s:p:T:V:vnh";
+    const char *optstring = "t:a:f:c:r:s:p:T:V:b:vnh";
     while ((c = getopt(argc, argv, optstring)) != -1) {
         switch (c) {
         case 't':
@@ -146,11 +148,19 @@ int main(int argc, char *const argv[]) {
         case 'V':
             isVerbose = true;
             tempverboselines = atoi(optarg);
-            if (verboselines <= 0) {
-                printf("-V needs an valid argument, using default: 10000\n");
+            if (tempverboselines <= 0) {
+                printf("-V needs an valid argument, using default: %d\n", verboselines);
                 tempverboselines = verboselines;
             }
             verboselines = tempverboselines;
+            break;
+        case 'b':
+            int tempConsecutiveNoDeletionThreshold = atoi(optarg);
+            if (tempConsecutiveNoDeletionThreshold <= 0) {
+                printf("-b needs a positive integer, using default: %d\n", Simplify::consecutiveNoDeletionThreshold);
+                tempConsecutiveNoDeletionThreshold = Simplify::consecutiveNoDeletionThreshold;
+            }
+            Simplify::consecutiveNoDeletionThreshold = tempConsecutiveNoDeletionThreshold;
             break;
         case 'n':
             isNegative = true;
@@ -164,7 +174,7 @@ int main(int argc, char *const argv[]) {
         }
     }
     if ((func == gaussian) && (scale <= 1))
-		printf("  Warning: cannot use scale = %f for gaussian, will use default = 2\n", scale);
+		printf("  Warning: cannot use scale = %g for gaussian, will use default = 2\n", scale);
     if (argc - optind < 2) {
         showHelp(argv);
         return EXIT_SUCCESS;
@@ -201,14 +211,14 @@ int main(int argc, char *const argv[]) {
         printf("Output file's extension not found.\n");
         return EXIT_FAILURE;
     }
-    if (doloadobj && !doloadtri10) Simplify::load_obj(argv[optind], isVerbose, verboselines);
-    else if (doloadtri10 && !doloadobj) Simplify::load_tri10(argv[optind], isVerbose, verboselines);
+    if (doloadobj) Simplify::load_obj(argv[optind], isVerbose, verboselines);
+    else if (doloadtri10) Simplify::load_tri10(argv[optind], isVerbose, verboselines);
     printf("File loaded in %.4f sec\n", ((float)(clock()-load_start))/CLOCKS_PER_SEC);
 	if ((Simplify::triangles.size() < 3) || (Simplify::vertices.size() < 3))
 		return EXIT_FAILURE;
-    if (doRegionSimplification == true) {
+    if (doRegionSimplification) {
         Simplify::initialRegionCount = 0;
-        for (long long i = 0; i < (long long)(Simplify::triangles.size()); i++) {
+        for (int i = 0; i < (int)(Simplify::triangles.size()); i++) {
             if (Simplify::inRegion(Simplify::triangles[i], coord, radius)) {
                 Simplify::initialRegionCount++;
             }
@@ -221,11 +231,11 @@ int main(int argc, char *const argv[]) {
     }
 	clock_t start = clock();
 	printf("Input: %zu vertices, %zu triangles (target %d)\n", Simplify::vertices.size(), Simplify::triangles.size(), target_count);
-	int startSize = Simplify::triangles.size();
-    Simplify::initialTotalCount = (long long)(Simplify::triangles.size());
+	int startSize = int(Simplify::triangles.size());
+    Simplify::initialTotalCount = startSize;
     Simplify::simplify_mesh(coord, target_count, aggressiveness, isVerbose, func, radius, scale, power, isNegative, doRegionSimplification);
 	//Simplify::simplify_mesh_lossless( false);
-	if ( Simplify::triangles.size() >= (size_t) startSize) {
+	if (int(Simplify::triangles.size()) >= startSize) {
 		printf("Unable to reduce mesh.\n");
     	return EXIT_FAILURE;
 	}

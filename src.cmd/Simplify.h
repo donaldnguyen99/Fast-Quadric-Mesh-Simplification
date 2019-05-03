@@ -335,9 +335,10 @@ namespace Simplify
 	void update_triangles(int i0,Vertex &v,std::vector<int> &deleted,int &deleted_triangles);
 	void update_mesh(int iteration);
 	void compact_mesh();
-	long long initialTotalCount = 0;
-	long long initialRegionCount = 0;
-	long long currentRegionCount = 0;
+	int consecutiveNoDeletionThreshold = 1000;
+	int initialTotalCount = 0;
+	int initialRegionCount = 0;
+	int currentRegionCount = 0;
 	double currentRegionRatio;
 	double currentOutsideRatio;
 	double target_region_ratio;
@@ -371,6 +372,7 @@ namespace Simplify
 		std::vector<int> deleted0,deleted1;
 		int triangle_count=triangles.size();
 		bool regionDone = false;
+		int consecutiveNoDeletion = 0;
 		//int iteration = 0;
 		//loop(iteration,0,100)
 		for (int iteration = 0; iteration < 1000; iteration ++)
@@ -379,7 +381,7 @@ namespace Simplify
 			if(triangle_count-deleted_triangles<=target_count)break;
 			currentRegionCount = 0;
 			if (doRegionSimplification) {
-				for (long long i = 0; i < (long long)(triangles.size()); i++) {
+				for (int i = 0; i < (int)(triangles.size()); i++) {
             		if (inRegion(triangles[i], coord, radius)) currentRegionCount++;
         		}
 				currentRegionRatio = double(currentRegionCount)/double(initialRegionCount);
@@ -416,6 +418,8 @@ namespace Simplify
 			loopi(0,triangles.size())
 			{
 				Triangle &t=triangles[i];
+				if(t.deleted) continue;
+				if(t.dirty) continue;
 				if (doRegionSimplification && regionDone) {
 					if (func != constantFunc) {
 						threshold = threshold0*pow(func(
@@ -442,8 +446,6 @@ namespace Simplify
 					}
 				}
 				if(t.err[3]>threshold) continue;
-				if(t.deleted) continue;
-				if(t.dirty) continue;
 
 				loopj(0,3)if(t.err[j]<threshold)
 				{
@@ -495,15 +497,19 @@ namespace Simplify
 				if(!breakIteration && (triangle_count-deleted_triangles<=target_count)) breakIteration = true;
 			}
 			deleted_triangles_after = deleted_triangles;
-			if(deleted_triangles_before == deleted_triangles_after) printf("No triangles deleted yet.\n");
+			if(deleted_triangles_before == deleted_triangles_after) {
+				consecutiveNoDeletion++;
+				if(iteration%5==0) printf("No triangles deleted yet.\n");
+				if(consecutiveNoDeletion >= consecutiveNoDeletionThreshold) break;
+			}
 			if(doRegionSimplification && regionDone) {
 				currentRegionCount = 0;
-				for (long long i = 0; i < (long long)(triangles.size()); i++) {
+				for (int i = 0; i < (int)(triangles.size()); i++) {
             		if (inRegion(triangles[i], coord, radius)) currentRegionCount++;
         		}
 				currentRegionRatio = double(currentRegionCount)/double(initialRegionCount);
-				long long initialOutsideCount = initialTotalCount - initialRegionCount;
-				long long currentOutsideCount = (long long)(triangles.size()) - currentRegionCount;
+				int initialOutsideCount = initialTotalCount - initialRegionCount;
+				int currentOutsideCount = (int)(triangles.size()) - currentRegionCount;
 				currentOutsideRatio = double(currentOutsideCount)/double(initialOutsideCount);
 				if (currentOutsideRatio <= target_outside_ratio) break;
 			}
@@ -1216,14 +1222,11 @@ namespace Simplify
 
 	// Is triangle in region specified by center coordinate and radius?
 	bool inRegion(Triangle &t, double coord[], double radius) {
-		bool inReg = false;
 		for (int i = 0; i < 3; i++) {
     		if (sqrt(pow(vertices[t.v[i]].p.x-coord[0], 2.0) + pow(vertices[t.v[i]].p.y-coord[1], 2.0) + pow(vertices[t.v[i]].p.z-coord[2], 2.0)) <= radius)
-				inReg = true;
-			else 
-				inReg = false;
+				return true;
 		}
-		return inReg;
+		return false;
     }
 };
 ///////////////////////////////////////////
