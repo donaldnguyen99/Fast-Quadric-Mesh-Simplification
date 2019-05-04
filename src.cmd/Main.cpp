@@ -79,6 +79,7 @@ int main(int argc, char *const argv[]) {
     bool doRegionSimplification = false;
     bool isVerbose = false, isNegative = false;
     int tempverboselines, verboselines = 10000;
+    int tempConsecutiveNoDeletionThreshold;
 
     int c;
 	char *pcoord;
@@ -155,7 +156,7 @@ int main(int argc, char *const argv[]) {
             verboselines = tempverboselines;
             break;
         case 'b':
-            int tempConsecutiveNoDeletionThreshold = atoi(optarg);
+            tempConsecutiveNoDeletionThreshold = atoi(optarg);
             if (tempConsecutiveNoDeletionThreshold <= 0) {
                 printf("-b needs a positive integer, using default: %d\n", Simplify::consecutiveNoDeletionThreshold);
                 tempConsecutiveNoDeletionThreshold = Simplify::consecutiveNoDeletionThreshold;
