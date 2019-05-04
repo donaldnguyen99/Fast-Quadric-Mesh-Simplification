@@ -62,7 +62,7 @@ void showHelp(char *const argv[]) {
     printf("            failed to delete triangles. (default: 1000)\n");
 } //showHelp()
 
-int getopt(int argc, char *const argv[], const char *optstring);
+// int getopt(int argc, char *const argv[], const char *optstring);
 // extern char *optarg;
 // extern int optind, opterr, optopt;
 
