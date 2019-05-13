@@ -339,7 +339,7 @@ namespace Simplify
 	void update_triangles(int i0,Vertex &v,std::vector<int> &deleted,int &deleted_triangles);
 	void update_mesh(int iteration);
 	void compact_mesh();
-	int consecutiveNoDeletionThreshold = 1000;
+	int consecutiveNoDeletionThreshold = 10000;
 	int initialTotalCount = 0;
 	int initialRegionCount = 0;
 	int currentRegionCount = 0;
@@ -448,6 +448,7 @@ namespace Simplify
 					} else {
 						threshold = threshold0;
 					}
+					//printf("vertices.size() = %d, triangles.size() = %d\n", int(vertices.size()), int(triangles.size()));
 				}
 				if(t.err[3]>threshold) continue;
 
@@ -498,13 +499,17 @@ namespace Simplify
 					break;
 				}
 				// done?
-				if(!breakIteration && (triangle_count-deleted_triangles<=target_count)) breakIteration = true;
+				if(triangle_count-deleted_triangles<=target_count) break;
+				//if(!breakIteration && (triangle_count-deleted_triangles<=target_count)) breakIteration = true; // may delete entire mesh
 			}
 			deleted_triangles_after = deleted_triangles;
 			if(deleted_triangles_before == deleted_triangles_after) {
 				consecutiveNoDeletion++;
 				if(iteration%5==0) printf("No triangles deleted yet.\n");
-				if(consecutiveNoDeletion >= consecutiveNoDeletionThreshold) break;
+				if(consecutiveNoDeletion >= consecutiveNoDeletionThreshold) {
+					consecutiveNoDeletion = 0;
+					break;
+				}
 			}
 			if(doRegionSimplification && regionDone) {
 				currentRegionCount = 0;
