@@ -158,7 +158,7 @@ void write2tri10(const char *filename, bool verbose = false, int verboselines = 
     double quality = 0.0;
     double totalsize = double(triangles.size());
     loopi(0, triangles.size()) {
-        fprintf(file, " %15g %15g %15g %15g %15g %15g %15g %15g %15g %15g\n",
+        fprintf(file, " %15lf %15lf %15lf %15lf %15lf %15lf %15lf %15lf %15lf %15lf\n",
         vertices[triangles[i].v[0]].p.x, vertices[triangles[i].v[0]].p.y, vertices[triangles[i].v[0]].p.z,
         vertices[triangles[i].v[1]].p.x, vertices[triangles[i].v[1]].p.y, vertices[triangles[i].v[1]].p.z,
         vertices[triangles[i].v[2]].p.x, vertices[triangles[i].v[2]].p.y, vertices[triangles[i].v[2]].p.z, quality);

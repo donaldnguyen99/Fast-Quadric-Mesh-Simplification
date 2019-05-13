@@ -50,6 +50,7 @@ void loadfromtri10(const char *filename, bool verbose = false, int verboselines 
         &v0.p.x, &v0.p.y, &v0.p.z,
         &v1.p.x, &v1.p.y, &v1.p.z,
         &v2.p.x, &v2.p.y, &v2.p.z, &quality) >= 9) {
+            /*
             // Simple Conversion
             vertices.push_back(v0);
             vertices.push_back(v1);
@@ -57,7 +58,7 @@ void loadfromtri10(const char *filename, bool verbose = false, int verboselines 
             t.v[0] = line_index;
             t.v[1] = line_index+1;
             t.v[2] = line_index+2;
-            /*
+            */
             // Find vertex from container of vertices, and use existing vertex if found
             bool v0Missing = true, v1Missing = true, v2Missing = true;
             for (std::vector<Vertex>::reverse_iterator it = vertices.rbegin(); it != vertices.rend(); ++it) {
@@ -85,9 +86,9 @@ void loadfromtri10(const char *filename, bool verbose = false, int verboselines 
             if (v2Missing) {
                 vertices.push_back(v2);
                 t.v[2] = int(vertices.size()) - 1;
-            }*/
+            }
             triangles.push_back(t);
-            line_index+=3; // 3 for simple conversion
+            line_index++;
             if (verbose && (line_index % verboselines == 0)) printf("tri10 lines read: %d\n", line_index);
         }
     }
@@ -104,15 +105,14 @@ void write2obj(const char *filename, bool verbose, int verboselines = 10000) {
     double totalvertices = double(vertices.size());
     loopi(0, vertices.size()) {
         if(verbose && (i%verboselines==0)) printf("obj vertices written: %d, %.2lf%% of vertices\n", i, double(i)/totalvertices*100);
-        //fprintf(file, "v %lf %lf %lf\n", vertices[i].p.x,vertices[i].p.y,vertices[i].p.z);
-        fprintf(file, "v %lf %lf %lf\n", vertices[i].p.x, vertices[i].p.y, vertices[i].p.z); //more compact: remove trailing zeros
+        fprintf(file, "v %lf %lf %lf\n", vertices[i].p.x,vertices[i].p.y,vertices[i].p.z);
     }
 
     double totaltriangles = double(triangles.size());
     loopi(0, triangles.size()) {
         if(verbose && (i%verboselines==0)) printf("obj triangles written: %d, %.2lf%% of triangles\n", i, double(i)/totaltriangles*100);
         fprintf(file, "f %d %d %d\n", triangles[i].v[0] + 1, triangles[i].v[1] + 1, triangles[i].v[2] + 1);
-        //fprintf(file, "f %d// %d// %d//\n", triangles[i].v[0]+1, triangles[i].v[1]+1, triangles[i].v[2]+1); //more compact: remove trailing zeros
+        //fprintf(file, "f %d// %d// %d//\n", triangles[i].v[0]+1, triangles[i].v[1]+1, triangles[i].v[2]+1);
     }
     fclose(file);
 }

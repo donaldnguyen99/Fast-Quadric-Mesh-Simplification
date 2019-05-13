@@ -72,6 +72,10 @@ struct vec3f
     inline vec3f operator = ( const vector3 a )
     { x=a.x;y=a.y;z=a.z;return *this; }
 
+	inline bool operator==(const vec3f a) {
+        return ((x == a.x) && (y == a.y) && (z == a.z));
+    }
+	
     inline vec3f operator = ( const vec3f a )
     { x=a.x;y=a.y;z=a.z;return *this; }
 
@@ -907,7 +911,7 @@ namespace Simplify
 	}
 
 	//Option : Load OBJ
-	void load_obj(const char* filename, bool verbose=false, int verboselines=10000, bool process_uv=false){
+	void load_obj(const char* filename, bool verbose=false, int verboselines=10000, bool process_uv=false) {
 		vertices.clear();
 		triangles.clear();
 		//printf ( "Loading Objects %s ... \n",filename);
@@ -1069,7 +1073,7 @@ namespace Simplify
 		}
 		char line[1000];
 		memset(line, 0, 1000);
-		int material = -1;
+		//int material = -1;
 		double quality;
 		int line_index = 0; // .obj is 1-based, but Simplify.h vectors are 0-based
 		fgets(line, 1000, fn);
@@ -1086,66 +1090,53 @@ namespace Simplify
 			&v0.p.x, &v0.p.y, &v0.p.z,
 			&v1.p.x, &v1.p.y, &v1.p.z,
 			&v2.p.x, &v2.p.y, &v2.p.z, &quality)==10) {
-				
-				// Find vertex from vector of vertices, use existing vertex if found
-				bool v0Found = false, v1Found = false, v2Found = false;
-                for (std::vector<Vertex>::reverse_iterator it = vertices.rbegin(); it != vertices.rend(); ++it) {
-                    int index = std::distance(vertices.begin(), it.base()) - 1;
-					// printf("i: %i, val: %lf\n", index, *it);
-					if (((*it).p.x == v0.p.x) && ((*it).p.y == v0.p.y) && ((*it).p.y == v0.p.y)) {
-						t.v[0] = index;
-						v0Found = true;
-						break;
-					}
-				}
+				/*
+				// Simple Conversion
+				vertices.push_back(v0);
+				vertices.push_back(v1);
+				vertices.push_back(v2);
+				t.v[0] = line_index;
+				t.v[1] = line_index+1;
+				t.v[2] = line_index+2;
+				*/
+				// Find vertex from container of vertices, and use existing vertex if found
+				bool v0Missing = true, v1Missing = true, v2Missing = true;
 				for (std::vector<Vertex>::reverse_iterator it = vertices.rbegin(); it != vertices.rend(); ++it) {
-                    int index = std::distance(vertices.begin(), it.base()) - 1;
-					// printf("i: %i, val: %lf\n", index, *it);
-					if (((*it).p.x == v1.p.x) && ((*it).p.y == v1.p.y) && ((*it).p.y == v1.p.y)) {
-						t.v[1] = index;
-						v1Found = true;
-						break;
+					if (v0Missing && ((*it).p == v0.p)) {
+						t.v[0] = std::distance(vertices.begin(), it.base()) - 1;
+						v0Missing = false;
+					} else if (v1Missing && ((*it).p == v1.p)) {
+						t.v[1] = std::distance(vertices.begin(), it.base()) - 1;
+						v1Missing = false;
+					} else if (v2Missing && ((*it).p == v2.p)) {
+						t.v[2] = std::distance(vertices.begin(), it.base()) - 1;
+						v2Missing = false;
 					}
+					if ((!v0Missing) && (!v1Missing) && (!v2Missing)) break;
 				}
-				for (std::vector<Vertex>::reverse_iterator it = vertices.rbegin(); it != vertices.rend(); ++it) {
-                    int index = std::distance(vertices.begin(), it.base()) - 1;
-					// printf("i: %i, val: %lf\n", index, *it);
-					if (((*it).p.x == v2.p.x) && ((*it).p.y == v2.p.y) && ((*it).p.y == v2.p.y)) {
-						t.v[2] = index;
-						v2Found = true;
-						break;
-					}
-				}
-
-				// After search, push_back vertex if necessary
-				if (!v0Found) {
+				// After search, push_back vertex to container if necessary
+				if (v0Missing) {
 					vertices.push_back(v0);
-					t.v[0] = int(vertices.size())-1;
+					t.v[0] = int(vertices.size()) - 1;
 				}
-				if (!v1Found) {
+				if (v1Missing) {
 					vertices.push_back(v1);
-					t.v[1] = int(vertices.size())-1;
+					t.v[1] = int(vertices.size()) - 1;
 				}
-				if (!v2Found) {
+				if (v2Missing) {
 					vertices.push_back(v2);
-					t.v[2] = int(vertices.size())-1;
+					t.v[2] = int(vertices.size()) - 1;
 				}
-				
-				t.attr = 0;
-				t.material = material;
 				triangles.push_back(t);
-				++line_index;
-				if(line_index % verboselines == 0) printf("tri10 lines read: %d\n", line_index);
-				//printf("Lines read: %d, %.2lf%%\n", line_index, 100.0*double(line_index)/double(totallines));
+				line_index++;
+				if (verbose && (line_index % verboselines == 0)) printf("tri10 lines read: %d\n", line_index);
 			}
 		}
 		fclose(fn);
 	}
 
 	// Optional : Store as OBJ
-
-	void write_obj(const char* filename, bool verbose=false, int verboselines=10000)
-	{
+	void write_obj(const char* filename, bool verbose=false, int verboselines=10000) {
 		FILE *file=fopen(filename, "w");
 		int cur_material = -1;
 		bool has_uv = (triangles.size() && (triangles[0].attr & TEXCOORD) == TEXCOORD);
@@ -1163,16 +1154,15 @@ namespace Simplify
 		loopi(0,vertices.size())
 		{
 			if(verbose && (i%verboselines==0)) printf("Vertices written: %d, %.2lf%% of vertices\n", i, double(i)/totalvertices*100);
-			//fprintf(file, "v %lf %lf %lf\n", vertices[i].p.x,vertices[i].p.y,vertices[i].p.z);
-			fprintf(file, "v %g %g %g\n", vertices[i].p.x,vertices[i].p.y,vertices[i].p.z); //more compact: remove trailing zeros
+			fprintf(file, "v %lf %lf %lf\n", vertices[i].p.x,vertices[i].p.y,vertices[i].p.z);
 		}
 		if (has_uv)
 		{
 			loopi(0,triangles.size()) if(!triangles[i].deleted)
 			{
-				fprintf(file, "vt %g %g\n", triangles[i].uvs[0].x, triangles[i].uvs[0].y);
-				fprintf(file, "vt %g %g\n", triangles[i].uvs[1].x, triangles[i].uvs[1].y);
-				fprintf(file, "vt %g %g\n", triangles[i].uvs[2].x, triangles[i].uvs[2].y);
+				fprintf(file, "vt %lf %lf\n", triangles[i].uvs[0].x, triangles[i].uvs[0].y);
+				fprintf(file, "vt %lf %lf\n", triangles[i].uvs[1].x, triangles[i].uvs[1].y);
+				fprintf(file, "vt %lf %lf\n", triangles[i].uvs[2].x, triangles[i].uvs[2].y);
 			}
 		}
 		int uv = 1;
@@ -1210,12 +1200,11 @@ namespace Simplify
 		double quality = 0.0;
 		double totalsize = double(triangles.size());
 		loopi(0, triangles.size()) {
-			fprintf(file, " %15g %15g %15g %15g %15g %15g %15g %15g %15g %15g\n",
+			fprintf(file, " %15lf %15lf %15lf %15lf %15lf %15lf %15lf %15lf %15lf %15lf\n",
 			vertices[triangles[i].v[0]].p.x, vertices[triangles[i].v[0]].p.y, vertices[triangles[i].v[0]].p.z,
 			vertices[triangles[i].v[1]].p.x, vertices[triangles[i].v[1]].p.y, vertices[triangles[i].v[1]].p.z,
 			vertices[triangles[i].v[2]].p.x, vertices[triangles[i].v[2]].p.y, vertices[triangles[i].v[2]].p.z, quality);
 			if (verbose && (i%verboselines==0)) printf("tri10 lines written: %d, %.2lf%%\n", i, double(i)/totalsize*100);
-			//fprintf(file, "f %d// %d// %d//\n", triangles[i].v[0]+1, triangles[i].v[1]+1, triangles[i].v[2]+1); //more compact: remove trailing zeros
 		}
 		fclose(file);
 	}
