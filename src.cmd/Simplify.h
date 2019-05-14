@@ -379,7 +379,7 @@ namespace Simplify
 		int consecutiveNoDeletion = 0;
 		//int iteration = 0;
 		//loop(iteration,0,100)
-		for (int iteration = 0; iteration < 1000; iteration ++)
+		for (int iteration = 0; iteration < triangle_count*consecutiveNoDeletionThreshold; iteration ++)
 		{
 			deleted_triangles_before = deleted_triangles;
 			if(triangle_count-deleted_triangles<=target_count)break;
