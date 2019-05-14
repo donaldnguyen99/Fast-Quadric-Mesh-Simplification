@@ -72,7 +72,7 @@ int main(int argc, char *const argv[]) {
     printf("Mesh Simplification (C)2014 by Sven Forstmann in 2014, MIT License (%zu-bit)\n", sizeof(size_t)*8);
     
     double reduceFraction = 0.5;
-    double aggressiveness = 7.0;
+    double aggressiveness = 2.0;
     double (*func)(double, double, double, double, double, double, double, double, bool) = constantFunc;
     double coord[] = {0, 0, 0};
     double radius = 1.0;
