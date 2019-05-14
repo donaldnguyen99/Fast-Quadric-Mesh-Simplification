@@ -1214,6 +1214,24 @@ namespace Simplify
 		fclose(file);
 	}
 
+	void write_tri9(const char *filename, bool verbose = false, int verboselines = 10000) {
+		FILE *file = fopen(filename, "w");
+		if (!file) {
+			printf("write_obj: can't write data file \"%s\".\n", filename);
+			exit(0);
+		}
+		double totalsize = double(triangles.size());
+		loopi(0, triangles.size()) {
+			fprintf(file, " %15lf %15lf %15lf %15lf %15lf %15lf %15lf %15lf %15lf\n",
+			vertices[triangles[i].v[0]].p.x, vertices[triangles[i].v[0]].p.y, vertices[triangles[i].v[0]].p.z,
+			vertices[triangles[i].v[1]].p.x, vertices[triangles[i].v[1]].p.y, vertices[triangles[i].v[1]].p.z,
+			vertices[triangles[i].v[2]].p.x, vertices[triangles[i].v[2]].p.y, vertices[triangles[i].v[2]].p.z);
+			if (verbose && (i%verboselines==0)) printf("tri9 lines written: %d, %.2lf%%\n", i, double(i)/totalsize*100);
+			//fprintf(file, "f %d// %d// %d//\n", triangles[i].v[0]+1, triangles[i].v[1]+1, triangles[i].v[2]+1); //more compact: remove trailing zeros
+		}
+		fclose(file);
+	}
+
 	// Is triangle in region specified by center coordinate and radius?
 	bool inRegion(Triangle &t, double coord[], double radius) {
 		for (int i = 0; i < 3; i++) {

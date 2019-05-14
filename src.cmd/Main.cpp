@@ -23,9 +23,11 @@
 void showHelp(char *const argv[]) {
     const char *cstr = (argv[0]);
     printf("Usage: %s [option...] inputfile outputfile\n", cstr);
-    printf("%s simplifies an triangular mesh .obj or .tri10 file using a quadric error\n", cstr);
-    printf("metrics; Input file can be either .obj or .tri10; output file is only in .obj\n");
-    printf(".tri10 files will take longer to load because duplicate vertices need to removed\n");
+    printf("%s simplifies an triangular mesh .obj, .tri9, or .tri10 file using a quadric\n", cstr);
+    printf("error metrics; Input file can be either obj, tri9, or tri10; output file is only\n");
+    printf("in obj. trii9 and tri10 files will take longer to load because duplicate\n");
+    printf("vertices references need to be merged for every triangle. Suggested to use obj\n");
+    printf("with duplicate vertices already removed.\n");
     printf(" Examples:\n");
 #if defined(_WIN64) || defined(_WIN32)
     printf("  %s -t 0.2 c:\\dir\\in.obj c:\\dir\\out.obj\n", cstr);
@@ -187,11 +189,12 @@ int main(int argc, char *const argv[]) {
     std::string::size_type outidx;
     idx = filenameIn.rfind('.');
     outidx = filenameOut.rfind('.');
-    bool doloadobj = false, doloadtri10 = false, dowriteobj = false, dowritetri10 = false;
+    bool doloadobj = false, doloadtri10 = false, dowriteobj = false, dowritetri10 = false, dowritetri9 = false;
     if (idx != std::string::npos) {
         std::string extensionIn = filenameIn.substr(idx+1);
         if (extensionIn == "obj") doloadobj = true;
         else if (extensionIn == "tri10") doloadtri10 = true;
+        else if (extensionIn == "tri9") doloadtri10 = true; // load_tri10 will read tri9 the same
         else {
             printf("Cannot load file with extension .%s\n", extensionIn.c_str());
             return EXIT_FAILURE;
@@ -204,6 +207,7 @@ int main(int argc, char *const argv[]) {
         std::string extensionOut = filenameOut.substr(outidx+1);
         if (extensionOut == "obj") dowriteobj = true;
         else if (extensionOut == "tri10") dowritetri10 = true;
+        else if (extensionOut == "tri9") dowritetri9 = true;
         else {
             printf("Cannot write to file with extension .%s\n", extensionOut.c_str());
             return EXIT_FAILURE;
@@ -240,8 +244,9 @@ int main(int argc, char *const argv[]) {
 		printf("Unable to reduce mesh.\n");
     	return EXIT_FAILURE;
 	}
-	if (dowriteobj && !dowritetri10) Simplify::write_obj(argv[optind+1], isVerbose, verboselines);
-    else if (dowritetri10 && !dowriteobj) Simplify::write_tri10(argv[optind+1], isVerbose, verboselines);
+	if (dowriteobj) Simplify::write_obj(argv[optind+1], isVerbose, verboselines);
+    else if (dowritetri10) Simplify::write_tri10(argv[optind+1], isVerbose, verboselines);
+    else if (dowritetri9) Simplify::write_tri9(argv[optind+1], isVerbose, verboselines);
 	printf("Output: %zu vertices, %zu triangles (%f reduction; %.4f sec)\n",Simplify::vertices.size(), Simplify::triangles.size()
 		, (float)Simplify::triangles.size()/ (float) startSize  , ((float)(clock()-start))/CLOCKS_PER_SEC );
 	return EXIT_SUCCESS;
