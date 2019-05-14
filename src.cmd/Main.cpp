@@ -43,7 +43,7 @@ void showHelp(char *const argv[]) {
     printf("  -T <arg1>,<arg2>  Region INSIDE radius will be reduced by ratio arg1. Region\n");
     printf("            OUTSIDE radius by arg2. -t option will be ignored.\n");
     printf("            Example: 0.8,0.1   \"( 0.1, 0.01 )\" (default: 0.5,0.5)\n");
-    printf("  -a <arg>  Aggressiveness; higher=faster lower=better decimation (default: 7.0)\n");
+    printf("  -a <arg>  Aggressiveness; higher=faster lower=better decimation (default: 2.0)\n");
     printf(" Function options for a spacially non-uniform reduction:\n");
     printf("  -f <arg>  Function name\n");
     printf("                ARG: square|triangular|gaussian (default: constFunc)\n");
