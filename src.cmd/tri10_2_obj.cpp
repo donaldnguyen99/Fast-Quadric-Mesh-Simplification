@@ -34,7 +34,7 @@ void loadfromtri10(const char *filename, bool verbose = false, int verboselines 
     if (fgets(line, 1000, fn) != NULL) {
         double totallines, magnification, moreArgs;
         if (verbose && (sscanf(line, "%lf %lf %lf", &totallines, &magnification, &moreArgs) == 2)) {
-            printf("tri10 file header:\n Polygons: %lf, Magnification (ignored): %lf\n", totallines, magnification);
+            printf("tri file header:\n Polygons: %lf, Magnification (ignored): %lf\n", totallines, magnification);
         } else {
             rewind(fn);
         }
@@ -88,7 +88,7 @@ void loadfromtri10(const char *filename, bool verbose = false, int verboselines 
             }*/
             triangles.push_back(t);
             line_index+=3; // 3 for simple conversion
-            if (verbose && (line_index % verboselines == 0)) printf("tri10 lines read: %d\n", line_index);
+            if (verbose && (line_index % verboselines == 0)) printf("tri lines read: %d\n", line_index);
         }
     }
     fclose(fn);
@@ -158,7 +158,7 @@ int main(int argc, char *const argv[]) {
     bool doload = false, dowrite = false;
     if (idx != std::string::npos) {
         std::string extensionIn = filenameIn.substr(idx+1);
-        if (extensionIn == "tri10") doload = true;
+        if ((extensionIn == "tri10") | (extensionIn == "tri9")) doload = true;
         else {
             printf("Cannot load file with extension .%s\n", extensionIn.c_str());
             return EXIT_FAILURE;
