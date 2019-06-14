@@ -78,14 +78,18 @@ int main(int argc, char *const argv[]) {
     double radius = 1.0;
     double scale = 1.0;
     double power = 1.0;
+    bool doloadtxt = false;
+    bool Toption = false;
+    char *filetxt;
     bool doRegionSimplification = false;
     bool isVerbose = false, isNegative = false;
-    int tempverboselines, verboselines = 10000;
+    int tempverboselines, verboselines = 100000;
     int tempConsecutiveNoDeletionThreshold;
 
     int c;
+    char *poutside;
 	char *pcoord;
-    const char *optstring = "t:a:f:c:r:s:p:T:V:b:vnh";
+    const char *optstring = "t:a:f:c:r:s:p:T:L:V:b:vnh";
     while ((c = getopt(argc, argv, optstring)) != -1) {
         switch (c) {
         case 't':
@@ -98,18 +102,27 @@ int main(int argc, char *const argv[]) {
             }
             break;
         case 'T':
+            Toption = true;
             Simplify::target_region_ratio = atof(strtok(optarg, "{[( ,)]}"));
-            Simplify::target_outside_ratio = atof(strtok(NULL, "{[( ,)]}"));
             if (Simplify::target_region_ratio > 1) {
                 Simplify::target_region_ratio = 0.5;
                 printf("Warning: Region's ratio will use default: 0.5\n");
             }
-            if (Simplify::target_outside_ratio > 1) {
-                Simplify::target_outside_ratio = 0.5;
-                printf("Warning: Outside Region's ratio will use default: 0.5\n");
+            Simplify::target_outside_ratio = -1;
+            poutside = strtok(NULL, "{[( ,)]}");
+            if (poutside != NULL) {
+                Simplify::target_outside_ratio = atof(poutside);
+                if (Simplify::target_outside_ratio > 1) {
+                    Simplify::target_outside_ratio = 0.5;
+                    printf("Warning: Outside Region's ratio will use default: 0.5\n");
+                }
             }
             reduceFraction = min(double(Simplify::target_region_ratio), double(Simplify::target_outside_ratio));
             doRegionSimplification = true;
+            break;
+        case 'L':
+            strcpy(filetxt, optarg);
+            doloadtxt = true;
             break;
         case 'a':
             aggressiveness = atof(optarg);
@@ -218,17 +231,23 @@ int main(int argc, char *const argv[]) {
     }
     if (doloadobj) Simplify::load_obj(argv[optind], isVerbose, verboselines);
     else if (doloadtri10) Simplify::load_tri10(argv[optind], isVerbose, verboselines);
-    printf("File loaded in %.4f sec\n", ((float)(clock()-load_start))/CLOCKS_PER_SEC);
+    if (doloadtxt) {
+        if (Toption) {
+            double Targ1 = Simplify::target_region_ratio; // Use -T <arg1> for outside ratio
+            if (Simplify::target_outside_ratio == -1) reduceFraction = Simplify::target_region_ratio;
+            else reduceFraction = Simplify::target_outside_ratio;
+            doRegionSimplification = false;
+        }
+        Simplify::load_txt(filetxt, isVerbose);
+        double minRegionRatio = 0; 
+        for (int i = 0; i < int(Simplify::regions.size()) - 1; i++) {
+            minRegionRatio = min(Simplify::regions[i].regionTarget, Simplify::regions[i+1].regionTarget);
+        }
+        reduceFraction = min(reduceFraction, minRegionRatio);
+    }
+    printf("File(s) loaded in %.4f sec\n", ((float)(clock()-load_start))/CLOCKS_PER_SEC);
 	if ((Simplify::triangles.size() < 3) || (Simplify::vertices.size() < 3))
 		return EXIT_FAILURE;
-    if (doRegionSimplification) {
-        Simplify::initialRegionCount = 0;
-        for (int i = 0; i < (int)(Simplify::triangles.size()); i++) {
-            if (Simplify::inRegion(Simplify::triangles[i], coord, radius)) {
-                Simplify::initialRegionCount++;
-            }
-        }
-    }
 	int target_count = round((float)Simplify::triangles.size() * reduceFraction);
     if (target_count < 4) {
 		printf("Object will not survive such extreme decimation\n");
@@ -238,7 +257,15 @@ int main(int argc, char *const argv[]) {
 	printf("Input: %zu vertices, %zu triangles (target %d)\n", Simplify::vertices.size(), Simplify::triangles.size(), target_count);
 	int startSize = int(Simplify::triangles.size());
     Simplify::initialTotalCount = startSize;
-    Simplify::simplify_mesh(coord, target_count, aggressiveness, isVerbose, func, radius, scale, power, isNegative, doRegionSimplification);
+    if (doRegionSimplification) {
+        Simplify::initialRegionCount = 0;
+        for (int i = 0; i < (int)(Simplify::triangles.size()); i++) {
+            if (Simplify::inRegion(Simplify::triangles[i], coord, radius)) {
+                Simplify::initialRegionCount++;
+            }
+        }
+    }
+    Simplify::simplify_mesh(coord, target_count, aggressiveness, isVerbose, func, radius, scale, power, isNegative, doRegionSimplification, doloadtxt);
 	//Simplify::simplify_mesh_lossless( false);
 	if (int(Simplify::triangles.size()) >= startSize) {
 		printf("Unable to reduce mesh.\n");

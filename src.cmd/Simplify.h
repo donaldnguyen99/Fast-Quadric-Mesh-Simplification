@@ -27,6 +27,10 @@
 #include <math.h>
 #include <float.h> //FLT_EPSILON, DBL_EPSILON
 #include <algorithm>
+#include <unordered_map>
+#include <unordered_set>
+#include <set>
+#include <cstdlib>
 #include "Functions.h"
 
 // #define loopi(start_l,end_l) for ( int i=start_l;i<end_l;++i )
@@ -324,16 +328,127 @@ namespace Simplify
 	struct Triangle { int v[3];double err[4];int deleted,dirty,attr;vec3f n;vec3f uvs[3];int material; };
 	struct Vertex { vec3f p;int tstart,tcount;SymetricMatrix q;int border;};
 	struct Ref { int tid,tvertex; };
+	struct Region {
+		double regionTarget;
+		bool regionBound;
+		double (*func)(double, double, double, double, double, double, double, double, bool);
+		vec3f coord;
+		double radius;
+		double scale;
+		double power;
+		bool isNegative;
+		bool done;
+		int startCount;
+		int endCount;
+	};
+	std::vector<Region> regions;
 	std::vector<Triangle> triangles;
 	std::vector<Vertex> vertices;
 	std::vector<Ref> refs;
     std::string mtllib;
     std::vector<std::string> materials;
 
+	/*class AdjList {
+	public:
+		// map of start vertex id (int) to set of end vertex ids (int)
+		// should use hash key instead of start vertex id (int)
+		unordered_map<int, unordered_set<int> > edgeList;
+
+		AdjList() {};
+		AdjList(const vector<Triangle>& triangles) {
+			for (size_t i = 0; i < triangles.size(); i++) {
+				for (int j = 0; j < 3; j++) {
+					unordered_map<int, unordered_set<int> >::iterator edgeIt = edgeList.find(triangles[i].v[j]);
+					if (edgeIt != edgeList.end()) { // if key is found
+						for (int k = 0; k < 3; k++) { // v[k] will be other v
+							if (k != j) {
+								(edgeIt->second).insert(triangles[i].v[k]); // insert(triangles[i].v[k]);
+							}
+						}
+					} else { // if key is NOT found
+					
+						// insert a new mapping to edgeList
+						vector<int> tempV;
+						for (int k = 0; k < 3; k++) { // v[k] will be other v
+							if (k != j) {
+								tempV.push_back(triangles[i].v[k]); // insert(triangles[i].v[k]);
+							}
+						}
+						unordered_set<int> tempSet(tempV.begin(), tempV.end());
+						edgeList.emplace_hint(edgeIt, triangles[i].v[j], tempSet);
+						;
+					}
+				}
+			}
+		}
+		~AdjList() {};
+
+		void print_edges() {
+			for (auto it = edgeList.begin(); it != edgeList.end(); it++) {
+				cout << "Key: " << it->first << " => " << "Set: ";
+				for (auto itSet = (it->second).begin(); itSet != (it->second).end(); itSet++) {
+					cout << *itSet << " ";
+				}
+				cout << endl;
+			}
+		}
+		void write_edges(const char* filename, bool verbose=false, int verboselines=10000) {
+			FILE *file=fopen(filename, "w");
+
+			if (!file) {
+				printf("write_edges: can't write data file \"%s\".\n", filename);
+				exit(0);
+			}
+			int ind = 1;
+			for (auto it = edgeList.begin(); it != edgeList.end(); it++, ind++) {
+				unordered_set<int> * p_currentMap = &(edgeList[ind].second);
+				for (auto it = edgeList[ind].second.begin(); it != edgeList[ind])
+				fprintf(file, "%d", edgeList[ind].second); // Update here, below is for example (from write_obj)
+			}
+			double totalvertices = double(vertices.size());
+			loopi(0,vertices.size())
+			{
+				if(verbose && (i%verboselines==0)) printf("Vertices written: %d, %.2lf%% of vertices\n", i, double(i)/totalvertices*100);
+				fprintf(file, "v %lf %lf %lf\n", vertices[i].p.x,vertices[i].p.y,vertices[i].p.z);
+			}
+			if (has_uv)
+			{
+				loopi(0,triangles.size()) if(!triangles[i].deleted)
+				{
+					fprintf(file, "vt %lf %lf\n", triangles[i].uvs[0].x, triangles[i].uvs[0].y);
+					fprintf(file, "vt %lf %lf\n", triangles[i].uvs[1].x, triangles[i].uvs[1].y);
+					fprintf(file, "vt %lf %lf\n", triangles[i].uvs[2].x, triangles[i].uvs[2].y);
+				}
+			}
+			int uv = 1;
+			double totaltriangles = double(triangles.size());
+			loopi(0,triangles.size()) if(!triangles[i].deleted)
+			{
+				if(verbose && (i%verboselines==0)) printf("Triangles written: %d, %.2lf%% of triangles\n", i, double(i)/totaltriangles*100);
+				if (triangles[i].material != cur_material)
+				{
+					cur_material = triangles[i].material;
+					fprintf(file, "usemtl %s\n", materials[triangles[i].material].c_str());
+				}
+				if (has_uv)
+				{
+					fprintf(file, "f %d/%d %d/%d %d/%d\n", triangles[i].v[0]+1, uv, triangles[i].v[1]+1, uv+1, triangles[i].v[2]+1, uv+2);
+					uv += 3;
+				}
+				else
+				{
+					fprintf(file, "f %d %d %d\n", triangles[i].v[0]+1, triangles[i].v[1]+1, triangles[i].v[2]+1);
+				}
+				//fprintf(file, "f %d// %d// %d//\n", triangles[i].v[0]+1, triangles[i].v[1]+1, triangles[i].v[2]+1); //more compact: remove trailing zeros
+			}
+			fclose(file);
+		}
+	};*/
+
 	// Helper functions
 
 	double vertex_error(SymetricMatrix q, double x, double y, double z);
-	double calculate_error(int id_v1, int id_v2, vec3f &p_result);
+	double calculate_error(int , int , vec3f &);
 	bool flipped(vec3f p,int i0,int i1,Vertex &v0,Vertex &v1,std::vector<int> &deleted);
 	void update_uvs(int i0,const Vertex &v,const vec3f &p,std::vector<int> &deleted);
 	void update_triangles(int i0,Vertex &v,std::vector<int> &deleted,int &deleted_triangles);
@@ -343,13 +458,18 @@ namespace Simplify
 	int initialTotalCount = 0;
 	int initialRegionCount = 0;
 	int currentRegionCount = 0;
+	bool anyRegionsBound = false;
 	double currentRegionRatio;
 	double currentOutsideRatio;
 	double target_region_ratio;
 	double target_outside_ratio;
 	double magnification;
+	int load_txt(const char* filename, bool verbose);
 	bool inRegion(Triangle &t, double coord[], double radius);
-	int countInitialRegion(double coord[], double radius);
+	double thresholdRegionsBound(Triangle &t, double &threshold0);
+	double thresholdAllCenters(Triangle &t, double &threshold0);
+	int currentCountInRegion(Region &region0);
+	bool allRegionsDone();
 	//
 	// Main simplification function
 	//
@@ -361,7 +481,8 @@ namespace Simplify
 
 	void simplify_mesh(double coord[3], int target_count, double agressiveness=7, bool verbose=false,
 		double (*func)(double, double, double, double, double, double, double, double, bool)=constantFunc,
-		double radius=def_radius, double scale=def_scale, double power=1, bool isneg=false, bool doRegionSimplification=false)
+		double radius=def_radius, double scale=def_scale, double power=1, bool isneg=false,
+		bool doRegionSimplification=false, bool doMultipleCenters=false)
 	{
 		// init
 		loopi(0,triangles.size())
@@ -377,23 +498,34 @@ namespace Simplify
 		int triangle_count=triangles.size();
 		bool regionDone = false;
 		int consecutiveNoDeletion = 0;
+		double threshold0;
+		double threshold;
+		if (doRegionSimplification && !doMultipleCenters) {
+			regions.clear();
+			Region singleRegion = {target_region_ratio, false, func, 
+			vec3f(coord[0], coord[1], coord[2]), radius, scale, power, isneg,
+			regionDone, initialTotalCount, 0};
+			regions.push_back(singleRegion);
+			currentRegionCount = currentCountInRegion(regions[0]);
+			currentRegionRatio = double(currentRegionCount)/double(initialRegionCount);
+			if (currentRegionRatio <= target_region_ratio) {
+				// printf("Inside Region Ratio: %f\n", currentRegionRatio);
+				regionDone = true;
+			}
+		} else if (doMultipleCenters) {
+			doRegionSimplification = false;
+			// regions will have been assigned in main
+			loopi(0, int(regions.size())) {
+				regions[i].endCount = currentCountInRegion(regions[i]);
+				regions[i].startCount = regions[i].endCount;
+			}
+		}
 		//int iteration = 0;
 		//loop(iteration,0,100)
 		for (int iteration = 0; iteration < triangle_count; iteration ++)
 		{
 			deleted_triangles_before = deleted_triangles;
 			if(triangle_count-deleted_triangles<=target_count)break;
-			currentRegionCount = 0;
-			if (doRegionSimplification) {
-				for (int i = 0; i < (int)(triangles.size()); i++) {
-            		if (inRegion(triangles[i], coord, radius)) currentRegionCount++;
-        		}
-				currentRegionRatio = double(currentRegionCount)/double(initialRegionCount);
-				if(currentRegionRatio <= target_region_ratio) {
-					// printf("Inside Region Ratio: %f\n", currentRegionRatio);
-					regionDone = true;
-				}
-			}
 			// update mesh once in a while
 			if(iteration%5==0)
 			{
@@ -409,8 +541,7 @@ namespace Simplify
 			// The following numbers works well for most models.
 			// If it does not, try to adjust the 3 parameters
 			//
-			double threshold0 = 0.000000001*pow(double(iteration+3),agressiveness);
-			double threshold;
+			threshold0 = 0.000000001*pow(double(iteration+3),agressiveness);
 			// target number of triangles reached ? Then break
 			if ((verbose) && (iteration%5==0)) {
 				printf("iteration %d - triangles %d threshold %g\n",iteration,triangle_count-deleted_triangles, threshold0);
@@ -424,31 +555,52 @@ namespace Simplify
 				Triangle &t=triangles[i];
 				if(t.deleted) continue;
 				if(t.dirty) continue;
-				if (doRegionSimplification && regionDone) {
-					if (func != constantFunc) {
-						threshold = threshold0*pow(func(
-						vertices[t.v[0]].p.x, vertices[t.v[0]].p.y, vertices[t.v[0]].p.z,
-						coord[0], coord[1], coord[2],
-						radius, scale, isneg), power)*square(
-						vertices[t.v[0]].p.x, vertices[t.v[0]].p.y, vertices[t.v[0]].p.z,
-						coord[0], coord[1], coord[2],
-						radius, 1.0, false);
+				//bool multipleCentersDone = true;
+				if(t.err[3] <= threshold0) {
+					if (doMultipleCenters) {
+						// 
+						// Doing Multiple Centers (option -L)
+						// 
+						if (anyRegionsBound) { // Fix here
+							threshold = thresholdRegionsBound(t, threshold0);
+						} else {
+							threshold = thresholdAllCenters(t, threshold0);
+						}
+					} else if (doRegionSimplification && regionDone) {
+						// 
+						// Doing Single Region (option -T)
+						// 
+						double squareFactor = square(vertices[t.v[0]].p.x, vertices[t.v[0]].p.y, vertices[t.v[0]].p.z,
+						coord[0], coord[1], coord[2], radius, 1.0, false);
+						if (func != constantFunc) {
+							if (squareFactor == 0) {
+								threshold = 0;
+							} else {
+								threshold = threshold0*pow(func(
+								vertices[t.v[0]].p.x, vertices[t.v[0]].p.y, vertices[t.v[0]].p.z,
+								coord[0], coord[1], coord[2],
+								radius, scale, isneg), power)*squareFactor;
+							}
+						} else {
+							threshold = threshold0*squareFactor;
+						}
 					} else {
-						threshold = threshold0*square(
-						vertices[t.v[0]].p.x, vertices[t.v[0]].p.y, vertices[t.v[0]].p.z,
-						coord[0], coord[1], coord[2],
-						radius, 1.0, false);
+						// 
+						// Doing Whole Mesh (default option)
+						// 
+						if (func != constantFunc) {
+							threshold = threshold0*pow(func(
+							vertices[t.v[0]].p.x, vertices[t.v[0]].p.y, vertices[t.v[0]].p.z,
+							coord[0], coord[1], coord[2],
+							radius, scale, isneg), power);
+						} else {
+							threshold = threshold0;
+						}
+						//printf("vertices.size() = %d, triangles.size() = %d\n", int(vertices.size()), int(triangles.size()));
 					}
+				
 				} else {
-					if (func != constantFunc) {
-						threshold = threshold0*pow(func(
-						vertices[t.v[0]].p.x, vertices[t.v[0]].p.y, vertices[t.v[0]].p.z,
-						coord[0], coord[1], coord[2],
-						radius, scale, isneg), power);
-					} else {
-						threshold = threshold0;
-					}
-					//printf("vertices.size() = %d, triangles.size() = %d\n", int(vertices.size()), int(triangles.size()));
+					threshold = threshold0;
 				}
 				if(t.err[3]>threshold) continue;
 
@@ -502,6 +654,9 @@ namespace Simplify
 				if(triangle_count-deleted_triangles<=target_count) break;
 				//if(!breakIteration && (triangle_count-deleted_triangles<=target_count)) breakIteration = true; // may delete entire mesh
 			}
+			// 
+			// Here is at the end of iteration
+			// 
 			deleted_triangles_after = deleted_triangles;
 			if(deleted_triangles_before == deleted_triangles_after) {
 				consecutiveNoDeletion++;
@@ -512,15 +667,21 @@ namespace Simplify
 				}
 			}
 			if(doRegionSimplification && regionDone) {
-				currentRegionCount = 0;
-				for (int i = 0; i < (int)(triangles.size()); i++) {
-            		if (inRegion(triangles[i], coord, radius)) currentRegionCount++;
-        		}
+				currentRegionCount = currentCountInRegion(regions[0]);
 				currentRegionRatio = double(currentRegionCount)/double(initialRegionCount);
+				if (currentRegionRatio <= target_region_ratio) {
+					// printf("Inside Region Ratio: %f\n", currentRegionRatio);
+					regionDone = true;
+				}
 				int initialOutsideCount = initialTotalCount - initialRegionCount;
 				int currentOutsideCount = (int)(triangles.size()) - currentRegionCount;
 				currentOutsideRatio = double(currentOutsideCount)/double(initialOutsideCount);
 				if (currentOutsideRatio <= target_outside_ratio) break;
+			} else if (doMultipleCenters) {
+				if (allRegionsDone()) {
+					//currentCountInAllRegions(); // Fix here
+					break;
+				}
 			}
 			if(breakIteration) break;
 		}
@@ -1232,6 +1393,110 @@ namespace Simplify
 		fclose(file);
 	}
 
+	// Need to add line or option for outside regions target ratio
+	// regionTarget 	function        center          radius      scale   power   negative?
+	// -q 0.2       	-f gaussian     -c 1.2,3.4,10   -r 20.0     -s 2.0  -p 3.0  -n false
+	int load_txt(const char* filename, bool verbose=false) {
+		FILE *fn;
+		if ((filename == NULL) | ((char)filename[0] == 0) | ((fn = fopen(filename, "rb")) == NULL)) {
+			printf("File %s not found!\n", filename);
+			return EXIT_FAILURE;
+		}
+		Region currentRegion;
+		Region def_region;
+		regions.clear();
+		def_region.regionTarget = 0.5;
+		def_region.regionBound = false;
+		def_region.func = constantFunc;
+		def_region.coord = vec3f(0.0, 0.0, 0.0);
+		def_region.radius = 1.0;
+		def_region.scale = 1.0;
+		def_region.power = 1.0;
+		def_region.isNegative = false;
+		def_region.done = false;
+		def_region.startCount = 0;
+		def_region.endCount = 0;
+		char line[1000];
+		memset(line, 0, 1000);
+		std::vector<char*> line_argv;
+		int line_count = 0;
+		while (fgets(line, 1000, fn) != NULL) {
+			line_count++;
+			char opt_exists;
+			char arg_exists;
+			currentRegion = def_region;
+			line_argv.clear();
+			char* pch = strtok(line, " ");
+			if ((pch[0] == '-') && (sscanf(line," %s %s ", &opt_exists, &arg_exists)==2)) {
+				while (pch != NULL) {
+					line_argv.push_back(pch);
+					pch = strtok(NULL, " ");
+				}
+				for (std::vector<char*>::iterator it = line_argv.begin(); it != line_argv.end(); ++it) {
+					if (strncmp(*it, "-q", 2) == 0) {
+						if ((atof(*(it+1)) <= 1) && (atof(*(it+1)) > 0))
+							currentRegion.regionTarget = atof(*(it+1));
+					} else if (strncmp(*it, "-Q", 2) == 0) {
+						if ((atof(*(it+1)) <= 1) && (atof(*(it+1)) > 0))
+							currentRegion.regionTarget = atof(*(it+1));
+						currentRegion.regionBound = true;
+						anyRegionsBound = true;
+					} else if (strncmp(*it, "-f", 2) == 0) {
+						if (strcmp(*(it+1), "gaussian") == 0) {
+							currentRegion.func = gaussian;
+						} else if (strcmp(*(it+1), "triangular") == 0) {
+							currentRegion.func = triangular;
+						} else if (strcmp(*(it+1), "square") == 0) {
+							currentRegion.func = square;
+						}
+					} else if (strncmp(*it, "-c", 2) == 0) {
+						double coord_arr[3] = {0, 0, 0};
+						char* pcoord = strtok(*(it+1), "{[( ,)]}");
+						for (int i = 0; i < 3; i++) {
+							coord_arr[i] = atof(pcoord);
+							pcoord = strtok(NULL, "{[( ,)]}");
+						}
+						currentRegion.coord = vec3f(coord_arr[0], coord_arr[1], coord_arr[2]);
+					} else if (strncmp(*it, "-r", 2) == 0) {
+						currentRegion.radius = atof(*(it+1));
+					} else if (strncmp(*it, "-s", 2) == 0) {
+						currentRegion.scale = atof(*(it+1));
+					} else if (strncmp(*it, "-p", 2) == 0) {
+						currentRegion.power = atof(*(it+1));
+					} else if (strncmp(*it, "-n", 2) == 0) {
+						if (strncmp(*(it+1), "true", 4) == 0) {
+							currentRegion.isNegative = true;
+						}
+					}
+				}
+				regions.push_back(currentRegion);
+				
+				// printf final regions if verbose
+				if (verbose) {
+					std::string function_str;
+					std::string isNegative_str;
+					if (currentRegion.func == gaussian) {
+						function_str = "gaussian";
+					} else if (currentRegion.func == triangular) {
+						function_str = "triangular";
+					} else if (currentRegion.func == square) {
+						function_str = "square";
+					} else {
+						function_str = "constantFunc";
+					}
+					if (currentRegion.isNegative) isNegative_str = "true"; else isNegative_str = "false";
+					printf("line interpreted: -T %lf -f %s -c %lf,%lf,%lf -r %lf -s %lf -p %lf -n %s",
+					currentRegion.regionTarget, function_str.c_str(), currentRegion.coord.x,
+					currentRegion.coord.y, currentRegion.coord.z, currentRegion.radius, currentRegion.scale,
+					currentRegion.power, isNegative_str.c_str());
+				}
+			} else if (verbose) {
+				printf("line #%d not loaded: \"%.*s ...\"", line_count, 150, line);
+			}
+		}
+		return EXIT_SUCCESS;
+	} //load_txt
+	
 	// Is triangle in region specified by center coordinate and radius?
 	bool inRegion(Triangle &t, double coord[], double radius) {
 		for (int i = 0; i < 3; i++) {
@@ -1239,6 +1504,68 @@ namespace Simplify
 				return true;
 		}
 		return false;
+    }
+
+	// Computes the factor to threshold locked to a region
+	double thresholdRegionsBound(Triangle &t, double &threshold0) {
+		double squareFactor;
+		for (std::vector<Region>::iterator it = regions.begin(); it != regions.end(); it++) {
+			squareFactor = square(vertices[t.v[0]].p.x, vertices[t.v[0]].p.y, 
+			vertices[t.v[0]].p.z, (*it).coord.x, (*it).coord.y, (*it).coord.z,
+			(*it).radius, (*it).scale, (*it).isNegative);
+			if (squareFactor == 0) {
+				return 0;
+			} else {
+				threshold0 = threshold0 * pow((*it).func(vertices[t.v[0]].p.x, vertices[t.v[0]].p.y, 
+				vertices[t.v[0]].p.z, (*it).coord.x, (*it).coord.y, (*it).coord.z,
+				(*it).radius, (*it).scale, (*it).isNegative), (*it).power) * squareFactor;
+			}
+		}
+		return threshold0;
+	}
+
+	// Computes the factor to threshold of all vertices corresponding to the position of triangle (1st vertex)
+	double thresholdAllCenters(Triangle &t, double &threshold0) {
+		for (std::vector<Region>::iterator it = regions.begin(); it != regions.end(); it++) {
+			threshold0 = threshold0 * pow((*it).func(vertices[t.v[0]].p.x, vertices[t.v[0]].p.y, 
+			vertices[t.v[0]].p.z, (*it).coord.x, (*it).coord.y, (*it).coord.z,
+			(*it).radius, (*it).scale, (*it).isNegative), (*it).power);
+		}
+		return threshold0;
+	}
+
+	int currentCountInRegion(Region &region0) {
+		int tempCount = 0;
+		double tempcoord[3] = {region0.coord.x, region0.coord.y, region0.coord.z};
+		loopi(0, int(triangles.size())) if (!(triangles[i].deleted) && inRegion(triangles[i], tempcoord, region0.radius)) {
+			tempCount++;
+		}
+		return tempCount;
+	}
+
+	int currentCountInAllRegions() {
+		int count = 0;
+		loopi(0, int(regions.size())) {
+			count = count + regions[i].endCount;
+		}
+		return count;
+	}
+
+	int currentCountOutsideAllRegions() {
+		return Simplify::initialTotalCount - Simplify::initialRegionCount - currentCountInAllRegions();
+	}
+
+	bool allRegionsDone() {
+		bool allDone = true;
+		loopi(0, int(regions.size())) {
+			if (!regions[i].done) {
+				regions[i].endCount = currentCountInRegion(regions[i]);
+				regions[i].done = ((double(regions[i].endCount)/regions[i].startCount) <= regions[i].regionTarget);
+			}
+			allDone = (allDone && regions[i].done);
+			if (!allDone) break;
+		}
+		return allDone;
     }
 };
 ///////////////////////////////////////////
