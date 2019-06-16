@@ -32,12 +32,37 @@ void loadfromtri10(const char *filename, bool verbose = false, int verboselines 
     }
     char line[1000];
     memset(line, 0, 1000);
+    bool is12char = false;
     if (fgets(line, 1000, fn) != NULL) {
         double totallines, magnification, moreArgs;
+        double arrArgs[10];
         if (verbose && (sscanf(line, "%lf %lf %lf", &totallines, &magnification, &moreArgs) == 2)) {
             printf("tri file header:\n Polygons: %lf, Magnification (ignored): %lf\n", totallines, magnification);
-        } else {
+        } else if (sscanf(line, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf", &(arrArgs[0]), &(arrArgs[1]), &(arrArgs[2]), 
+                &(arrArgs[3]), &(arrArgs[4]), &(arrArgs[5]), &(arrArgs[6]), &(arrArgs[7]), &(arrArgs[8]), &(arrArgs[9])) >= 9) {
+            is12char = false;
             rewind(fn);
+        } else if (sscanf(line, "%12lf%12lf%12lf%12lf%12lf%12lf%12lf%12lf%12lf%12lf", &(arrArgs[0]), &(arrArgs[1]), &(arrArgs[2]), 
+                &(arrArgs[3]), &(arrArgs[4]), &(arrArgs[5]), &(arrArgs[6]), &(arrArgs[7]), &(arrArgs[8]), &(arrArgs[9])) >= 9) {
+            is12char = true;
+            rewind(fn);
+        } else {
+            int rewindcount = 1;
+            int maxlinestocheckformat = 100;
+            for(int i = 0; (i < maxlinestocheckformat) && (fgets(line, 1000, fn) != NULL); i++) {
+                rewindcount++;
+                if (sscanf(line, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf", &(arrArgs[0]), &(arrArgs[1]), &(arrArgs[2]), 
+                        &(arrArgs[3]), &(arrArgs[4]), &(arrArgs[5]), &(arrArgs[6]), &(arrArgs[7]), &(arrArgs[8]), &(arrArgs[9])) >= 9) {
+                    is12char = false;
+                    break;
+                } else if (sscanf(line, "%12lf%12lf%12lf%12lf%12lf%12lf%12lf%12lf%12lf%12lf", &(arrArgs[0]), &(arrArgs[1]), &(arrArgs[2]), 
+                        &(arrArgs[3]), &(arrArgs[4]), &(arrArgs[5]), &(arrArgs[6]), &(arrArgs[7]), &(arrArgs[8]), &(arrArgs[9])) >= 9) {
+                    is12char = true;
+                    break;
+                }
+                if (i == maxlinestocheckformat-1) printf("Format cannot be interpreted (using top %d lines).\n", maxlinestocheckformat);
+            }
+            for(int i = 0; i < rewindcount; i++) {rewind(fn);}
         }
     }
     vertices.clear();
@@ -50,10 +75,23 @@ void loadfromtri10(const char *filename, bool verbose = false, int verboselines 
         Triangle t;
         Vertex v0, v1, v2;
         double quality; // quality is the 10th number and is ignored
-        if (sscanf(line, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf", 
-        &v0.p.x, &v0.p.y, &v0.p.z,
-        &v1.p.x, &v1.p.y, &v1.p.z,
-        &v2.p.x, &v2.p.y, &v2.p.z, &quality) >= 9) {
+        bool sscanfcondition;
+        if (is12char) {
+            sscanfcondition = (sscanf(line, "%12lf%12lf%12lf%12lf%12lf%12lf%12lf%12lf%12lf%12lf", 
+                &v0.p.x, &v0.p.y, &v0.p.z,
+                &v1.p.x, &v1.p.y, &v1.p.z,
+                &v2.p.x, &v2.p.y, &v2.p.z, &quality) >= 9);
+        } else {
+            sscanfcondition = (sscanf(line, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf", 
+                &v0.p.x, &v0.p.y, &v0.p.z,
+                &v1.p.x, &v1.p.y, &v1.p.z,
+                &v2.p.x, &v2.p.y, &v2.p.z, &quality) >= 9);
+        }
+        // if (sscanf(line, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf", // originally
+        //         &v0.p.x, &v0.p.y, &v0.p.z,
+        //         &v1.p.x, &v1.p.y, &v1.p.z,
+        //         &v2.p.x, &v2.p.y, &v2.p.z, &quality) >= 9) {
+        if (sscanfcondition) {
             if (useNsquared) {
                 // Find vertex from container of vertices, and use existing vertex if found
                 bool v0Missing = true, v1Missing = true, v2Missing = true;
@@ -96,6 +134,10 @@ void loadfromtri10(const char *filename, bool verbose = false, int verboselines 
             line_index++;
             if (verbose && (line_index % verboselines == 0)) printf("  tri lines read: %d\n", line_index);
         }
+    }
+    if(line_index < 1) {
+        printf("Could not read file. Should be whitespace delimited or 12 character columns.\n");
+        exit(EXIT_FAILURE);
     }
     printf("Total lines (triangles) read: %d\n", line_index);
     // Done reading lines from file
