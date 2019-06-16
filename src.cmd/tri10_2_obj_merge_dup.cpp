@@ -17,6 +17,7 @@ f <i0> <i1> <i2>
 #include <stdio.h>
 #include <time.h>  // clock_t, clock, CLOCKS_PER_SEC
 #include <unistd.h>
+// #include <boost/functional/hash.hpp>
 using namespace Simplify;
 
 const char *filename;
@@ -43,6 +44,8 @@ void loadfromtri10(const char *filename, bool verbose = false, int verboselines 
     triangles.clear();
     int line_index = 0;
     const bool useNsquared = false; // user decide
+    const bool useNlogN = false; // user decide
+    const bool useN = true; // user decide
     while (fgets(line, 1000, fn) != NULL) {
         Triangle t;
         Vertex v0, v1, v2;
@@ -91,48 +94,91 @@ void loadfromtri10(const char *filename, bool verbose = false, int verboselines 
                 triangles.push_back(t);
             }
             line_index++;
-            if (verbose && (line_index % verboselines == 0)) printf("tri lines read: %d\n", line_index);
+            if (verbose && (line_index % verboselines == 0)) printf("  tri lines read: %d\n", line_index);
         }
     }
-    if (useNsquared) {
-        printf("Duplicates removed by O(n^2) method.\n");
-    } else {
+    printf("Total lines (triangles) read: %d\n", line_index);
+    // Done reading lines from file
+
+    // Removing duplicates if necessary
+    if (useNsquared && !useNlogN) {
+        printf("Duplicates already removed by O(n^2) method.\n");
+    } else if (useNlogN) {
+        // Using sorting method, O(NlogN) time-complexity
+        printf("Removing duplicate vertices by O(nlogn) sorting method...\n");
+
+        // Need to provide algorithm
+
+
+    } else if (useN) {
         // Use hashtable, O(N) time-complexity
+        // std::unordered_map may encounter key collision when trying to insert new Vertex, so far so good
+        printf("Removing duplicate vertices by O(n) hashtable method...\n");
+
         struct hashFunc{
             size_t operator()(const Vertex &k) const{
-            size_t h1 = std::hash<double>()(k.p.x);
-            size_t h2 = std::hash<double>()(k.p.y);
-            size_t h3 = std::hash<double>()(k.p.z);
-            return (h1 ^ (h2 << 1)) ^ h3;
+                size_t h1 = std::hash<double>()(k.p.x);
+                size_t h2 = std::hash<double>()(k.p.y);
+                size_t h3 = std::hash<double>()(k.p.z);
+                return (h1 ^ (h2 << 1)) ^ h3;
             }
         };
         struct equalsFunc{
             bool operator()( const Vertex& lhs, const Vertex& rhs ) const{
-                return (abs(lhs.p.x - rhs.p.x) <= 0.0000001) && (abs(lhs.p.y - rhs.p.y) <= 0.0000001) && (abs(lhs.p.z - rhs.p.z) <= 0.0000001);
+                static const double EPS = 0.0000001;
+                return (fabs(lhs.p.x - rhs.p.x) <= EPS) && (fabs(lhs.p.y - rhs.p.y) <= EPS) && (fabs(lhs.p.z - rhs.p.z) <= EPS);
             }
         };
+        
+        std::vector<Vertex> original_vertices;
+        original_vertices = vertices;
 
-        // std::unordered_map may encounter key collision when trying to insert new Vertex, so far so good
-        printf("Removing duplicate vertices by O(n) hashtable method...\n");
+        // Insertion of vertices into hashtable
         std::unordered_map<Vertex, size_t, hashFunc, equalsFunc> setVertices;
-        std::vector<Vertex> original_vertices(vertices);
         std::vector<Vertex>::iterator vitr = vertices.begin();
-        size_t startVerticesSize = vertices.size();
-        size_t startTrianglesSize = triangles.size();
-        for (size_t i = 0; i < startVerticesSize; i++) {
+        for (size_t i = 0; i < vertices.size(); i++) {
             if(setVertices.insert(std::make_pair(vertices[i], std::distance(vertices.begin(), vitr))).second) {
-                *vitr++ = vertices[i];
+                *vitr = vertices[i]; vitr++;
             }
-            if(verbose && ((i+1)%verboselines==0)) printf("Checking vertex v #%d, %.2lf%% of vertices\n", int(i+1), double(i+1)/(startVerticesSize+1)*100);
+            if(verbose && ((i+1)%verboselines==0)) printf("  Checking vertex v #%d, %.2lf%% of vertices\n", int(i+1), double(i+1)/(vertices.size()+1)*100);
         }
         vertices.erase(vitr, vertices.end());
-        for (size_t i = 0; i < startTrianglesSize; i++) {
+        
+        // Updating of triangles vertex ids
+        int count = 0;
+        int triwithdups = 0;
+        size_t startTrianglesSize = triangles.size();
+        for (int i = 0; i < int(startTrianglesSize); i++) {
             for (int j = 0; j < 3; j++) {
-                triangles[i].v[j] = int(setVertices[original_vertices[triangles[i].v[j]]]);
+                if (equalsFunc()(vertices[setVertices[original_vertices[triangles[i].v[j]]]], original_vertices[triangles[i].v[j]]))
+                    triangles[i].v[j] = int(setVertices[original_vertices[triangles[i].v[j]]]);
+                else {
+                    count++;
+                    // We try to fix the failed vertices...
+
+                    bool foundInVertices = false;
+                    for(int k = 0; k < int(vertices.size()); k++) {
+                        if (equalsFunc()(vertices[k], original_vertices[triangles[i].v[j]])) {
+                            triangles[i].v[j] = k;
+                            foundInVertices = true;
+                            break;
+                        }
+                    }
+                    if (!foundInVertices) {
+                        vertices.push_back(original_vertices[triangles[i].v[j]]);
+                        triangles[i].v[j] = int(vertices.size()-1);
+                    }
+                }
             }
-            if(verbose && ((i+1)%verboselines==0)) printf("Updating triangle f #%d, %.2lf%% of vertices\n", int(i+1), double(i+1)/(startTrianglesSize+1)*100);
+            // Checks if any 2 of 3 vertices of a triangle are duplicates
+            if((equalsFunc()(vertices[triangles[i].v[0]], vertices[triangles[i].v[1]])) || (equalsFunc()(vertices[triangles[i].v[1]],vertices[triangles[i].v[2]])) || (equalsFunc()(vertices[triangles[i].v[0]],vertices[triangles[i].v[2]]))) {
+                triwithdups++;
+            }
+            if(verbose && ((i+1)%verboselines==0)) printf("  Updating triangle f #%d, %.2lf%% of triangles\n", int(i+1), double(i+1)/(startTrianglesSize+1)*100);
         }
-        printf("Removed %d duplicates.\n  Size of original_vertices: %d\n  Size of vertices: %d\n", int(original_vertices.size())-int(vertices.size()),int(original_vertices.size()), int(vertices.size()));
+        if (count > 0) printf("  Failed vertices by hashtable: %d\n", count); else printf("  No failed vertices by hashtable.\n");
+        if (triwithdups > 0) printf("  Triangles with duplicate vertices: %d\n", triwithdups); else printf("  No triangles with duplicate vertices.\n");
+        printf("  Number of original vertices:  %d\n  Number of removed duplicates: %d\n  Number of finished vertices:  %d\n", int(original_vertices.size()), int(original_vertices.size())-int(vertices.size()), int(vertices.size()));
     }
     fclose(fn);
 }
@@ -143,6 +189,7 @@ void write2obj(const char *filename, bool verbose, int verboselines = 10000) {
         printf("write_obj: can't write data file \"%s\".\n", filename);
         exit(0);
     }
+    printf("Writing to %s ...\n", filename);
 
     double totalvertices = double(vertices.size());
     loopi(0, vertices.size()) {
@@ -159,7 +206,7 @@ void write2obj(const char *filename, bool verbose, int verboselines = 10000) {
     fclose(file);
 }
 
-int getopt(int argc, char *const argv[], const char *optstring);
+// int getopt(int argc, char *const argv[], const char *optstring);
 
 int main(int argc, char *const argv[]) {
     const char *cstr = (argv[0]);
