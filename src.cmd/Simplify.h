@@ -668,8 +668,8 @@ namespace Simplify
 					break;
 				}
 				// done?
-				if(triangle_count-deleted_triangles<=target_count) break;
-				//if(!breakIteration && (triangle_count-deleted_triangles<=target_count)) breakIteration = true; // may delete entire mesh
+				//if(triangle_count-deleted_triangles<=target_count) break;
+				if(!breakIteration && (triangle_count-deleted_triangles<=target_count)) breakIteration = true; // may delete entire mesh
 			}
 			// 
 			// Here is at the end of iteration
