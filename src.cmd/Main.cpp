@@ -54,10 +54,12 @@ void showHelp(char *const argv[]) {
     printf("            square: region is retained by s, outside region is simplified fully\n");
     printf("                square's ARG: -1 to 1; negative ARG equivalent to -n flag\n");
     printf("            triangular: change radius by factor of 1/s\n");
-    printf("            gaussian: attenuate curve by factor of 1/s at radius;\n");
-    printf("                (default: 2.0); if s =< 1, default is used\n");
-    printf("                For reference, gaussian STD_DEVIATION = r/sqrt(2*ln(s))\n");
-    printf("  -p <arg>  Power to which the function is raised (default: 1.0)\n");
+    printf("            gaussian: attenuate amplitude by factor of 1/s at radius r;\n");
+    printf("                (default: 2.0); if s <= 1, default is used\n");
+    printf("                For reference, gaussian ~ exp( -1 / ((radius^2)/log(scale)) )\n");
+    printf("                with STD_DEVIATION = r/sqrt(2*ln(s))\n");
+    printf("  -p <arg>  Power to which the function is raised (default: 3.0)\n");
+    printf("                explicitly, (function)^p \n");
     printf("                higher means function is more visibly conveyed\n");
     printf("  -n        Negative form of function used.\n");
     printf("  -b <arg>  Breaking all iterations if selected number of consecutive iterations\n");
@@ -72,15 +74,15 @@ int main(int argc, char *const argv[]) {
     printf("Mesh Simplification (C)2014 by Sven Forstmann in 2014, MIT License (%zu-bit)\n", sizeof(size_t)*8);
     
     double reduceFraction = 0.5;
-    double aggressiveness = 2.0;
+    double aggressiveness = 5.0;
     double (*func)(double, double, double, double, double, double, double, double, bool) = constantFunc;
     double coord[] = {0, 0, 0};
     double radius = 1.0;
-    double scale = 1.0;
-    double power = 1.0;
+    double scale = 2.0;
+    double power = 3.0;
     bool doloadtxt = false;
     bool Toption = false;
-    char *filetxt;
+    char filetxt[512];
     bool doRegionSimplification = false;
     bool isVerbose = false, isNegative = false;
     int tempverboselines, verboselines = 100000;
@@ -93,39 +95,70 @@ int main(int argc, char *const argv[]) {
     while ((c = getopt(argc, argv, optstring)) != -1) {
         switch (c) {
         case 't':
-            reduceFraction = atof(optarg);
-            if (reduceFraction > 1.0)
-                reduceFraction = 1.0; //lossless only
-            if (reduceFraction <= 0.0) {
-                printf("Ratio must be BETWEEN zero and one.\n");
+            {
+            char *endptr;
+            double d = strtod(optarg, &endptr);
+            if(*endptr == '\0') reduceFraction = d;
+            else {
+                printf("Error: Could not read -a argument (needs a number).\n");
+                return EXIT_FAILURE;
+            }
+            }
+            if ((reduceFraction <= 0.0) || (reduceFraction > 1.0)) {
+                printf("Error: Ratio must be BETWEEN zero and one.\n");
                 return EXIT_FAILURE;
             }
             break;
         case 'T':
             Toption = true;
-            Simplify::target_region_ratio = atof(strtok(optarg, "{[( ,)]}"));
+            {
+            char *pstart = strtok(optarg, "{[( ,)]}");
+            char *endptr;
+            double d = strtod(pstart, &endptr);
+            if(*endptr == '\0') Simplify::target_region_ratio = d;
+            else {
+                printf("Error: Could not read -T argument1 (needs a number).\n");
+                return EXIT_FAILURE;
+            }
             if (Simplify::target_region_ratio > 1) {
-                Simplify::target_region_ratio = 0.5;
-                printf("Warning: Region's ratio will use default: 0.5\n");
+                printf("Error: Cannot use Region's ratio greater than 1.\n");
+                return EXIT_FAILURE;
             }
             Simplify::target_outside_ratio = -1;
             poutside = strtok(NULL, "{[( ,)]}");
             if (poutside != NULL) {
                 Simplify::target_outside_ratio = atof(poutside);
-                if (Simplify::target_outside_ratio > 1) {
-                    Simplify::target_outside_ratio = 0.5;
-                    printf("Warning: Outside Region's ratio will use default: 0.5\n");
+                {
+                d = strtod(poutside, &endptr);
+                if(*endptr == '\0') Simplify::target_outside_ratio = d;
+                else {
+                    printf("Error: Could not read -T argument2 (needs a number).\n");
+                    return EXIT_FAILURE;
                 }
+                }
+                if (Simplify::target_outside_ratio > 1) {
+                    printf("Error: Cannot use Region's ratio greater than 1.\n");
+                    return EXIT_FAILURE;
+                }
+            }
             }
             reduceFraction = min(double(Simplify::target_region_ratio), double(Simplify::target_outside_ratio));
             doRegionSimplification = true;
             break;
         case 'L':
             strcpy(filetxt, optarg);
-            doloadtxt = true;
+            //doloadtxt = true;
             break;
         case 'a':
-            aggressiveness = atof(optarg);
+            {
+            char *endptr;
+            double d = strtod(optarg, &endptr);
+            if(*endptr == '\0') aggressiveness = d;
+            else {
+                printf("Error: Could not read -a argument (needs a number).\n");
+                return EXIT_FAILURE;
+            }
+            }
             break;
         case 'f':
             printf("Checking function: ");
@@ -139,39 +172,86 @@ int main(int argc, char *const argv[]) {
                 printf("square\n");
                 func = square;
             } else {
-                printf("constant function (uniform)\n");
+                printf("Could not read function identifier, using constant function (uniform)\n");
             }
             break;
         case 'c':
             pcoord = strtok(optarg, "{[( ,)]}");
             for (int i = 0; i < 3; i++) {
-                coord[i] = atof(pcoord);
+                {
+                char *endptr;
+                double d = strtod(pcoord, &endptr);
+                if(*endptr == '\0') coord[i] = d;
+                else {
+                    printf("Error: Could not read -c arguments (needs a number).\n");
+                    return EXIT_FAILURE;
+                }
+                }
                 pcoord = strtok(NULL, "{[( ,)]}");
             }
             break;
         case 'r':
-            radius = atof(optarg);
-            break;
+            {
+            char *endptr;
+            double d = strtod(optarg, &endptr);
+            if(*endptr == '\0') radius = d;
+            else {
+                printf("Error: Could not read -r argument (needs a number).\n");
+                return EXIT_FAILURE;
+            }
+            }
         case 's':
-            scale = atof(optarg);
+            {
+            char *endptr;
+            double d = strtod(optarg, &endptr);
+            if(*endptr == '\0') scale = d;
+            else {
+                printf("Error: Could not read -s argument (needs a number).\n");
+                return EXIT_FAILURE;
+            }
+            }
             break;
         case 'p':
-            power = atof(optarg);
+            {
+            char *endptr;
+            double d = strtod(optarg, &endptr);
+            if(*endptr == '\0') power = d;
+            else {
+                printf("Error: Could not read -p argument (needs a number).\n");
+                return EXIT_FAILURE;
+            }
+            }
             break;
         case 'v':
             isVerbose = true;
             break;
         case 'V':
             isVerbose = true;
-            tempverboselines = atoi(optarg);
+            {
+            char *endptr;
+            double d = strtod(optarg, &endptr);
+            if(*endptr == '\0') tempverboselines = int(d);
+            else {
+                printf("Error: Could not read -V argument (needs a number). Using default: %d.\n", verboselines);
+                tempverboselines = verboselines;
+            }
+            }
             if (tempverboselines <= 0) {
-                printf("-V needs an valid argument, using default: %d\n", verboselines);
+                printf("-V needs an valid argument greater than 0, using default: %d\n", verboselines);
                 tempverboselines = verboselines;
             }
             verboselines = tempverboselines;
             break;
         case 'b':
-            tempConsecutiveNoDeletionThreshold = atoi(optarg);
+            {
+            char *endptr;
+            double d = strtod(optarg, &endptr);
+            if(*endptr == '\0') tempConsecutiveNoDeletionThreshold = int(d);
+            else {
+                printf("Error: Could not read -b argument (needs a number), using default: %d\n", Simplify::consecutiveNoDeletionThreshold);
+                tempConsecutiveNoDeletionThreshold = Simplify::consecutiveNoDeletionThreshold;
+            }
+            }
             if (tempConsecutiveNoDeletionThreshold <= 0) {
                 printf("-b needs a positive integer, using default: %d\n", Simplify::consecutiveNoDeletionThreshold);
                 tempConsecutiveNoDeletionThreshold = Simplify::consecutiveNoDeletionThreshold;
@@ -189,8 +269,11 @@ int main(int argc, char *const argv[]) {
             return EXIT_FAILURE;
         }
     }
-    if ((func == gaussian) && (scale <= 1))
-		printf("  Warning: cannot use scale = %g for gaussian, will use default = 2\n", scale);
+    if ((func == gaussian) && (scale <= 1)) {
+		printf("  Warning: cannot use -s %g for gaussian. scale must be > 1. Will use default = 2\n", scale);
+        printf("      Gaussian ~ exp( -1 / ((radius^2)/log(scale)) ), Cannot use log( scale <= 1 )\n");
+        printf("      Gaussian amplitude is 1/scale at radius\n");
+    }
     if (argc - optind < 2) {
         showHelp(argv);
         return EXIT_SUCCESS;
@@ -233,8 +316,7 @@ int main(int argc, char *const argv[]) {
     else if (doloadtri10) Simplify::load_tri10(argv[optind], isVerbose, verboselines);
     if (doloadtxt) {
         if (Toption) {
-            double Targ1 = Simplify::target_region_ratio; // Use -T <arg1> for outside ratio
-            if (Simplify::target_outside_ratio == -1) reduceFraction = Simplify::target_region_ratio;
+            if (Simplify::target_outside_ratio == -1) reduceFraction = Simplify::target_region_ratio; // Use -T <arg1> for outside ratio
             else reduceFraction = Simplify::target_outside_ratio;
             doRegionSimplification = false;
         }
@@ -254,7 +336,8 @@ int main(int argc, char *const argv[]) {
     	return EXIT_FAILURE;
     }
 	clock_t start = clock();
-	printf("Input: %zu vertices, %zu triangles (target %d)\n", Simplify::vertices.size(), Simplify::triangles.size(), target_count);
+	printf("Input: %zu vertices, %zu triangles", Simplify::vertices.size(), Simplify::triangles.size());
+    if(!(doRegionSimplification || doloadtxt)) printf(" (target %d)\n", target_count); else printf("\n");
 	int startSize = int(Simplify::triangles.size());
     Simplify::initialTotalCount = startSize;
     if (doRegionSimplification) {
@@ -268,13 +351,15 @@ int main(int argc, char *const argv[]) {
     Simplify::simplify_mesh(coord, target_count, aggressiveness, isVerbose, func, radius, scale, power, isNegative, doRegionSimplification, doloadtxt);
 	//Simplify::simplify_mesh_lossless( false);
 	if (int(Simplify::triangles.size()) >= startSize) {
-		printf("Unable to reduce mesh.\n");
+		printf("Unable to reduce mesh. Output number of triangles would be >= input number of triangles.\n");
     	return EXIT_FAILURE;
 	}
 	if (dowriteobj) Simplify::write_obj(argv[optind+1], isVerbose, verboselines);
     else if (dowritetri10) Simplify::write_tri10(argv[optind+1], isVerbose, verboselines);
     else if (dowritetri9) Simplify::write_tri9(argv[optind+1], isVerbose, verboselines);
-	printf("Output: %zu vertices, %zu triangles (%f reduction; %.4f sec)\n",Simplify::vertices.size(), Simplify::triangles.size()
-		, (float)Simplify::triangles.size()/ (float) startSize  , ((float)(clock()-start))/CLOCKS_PER_SEC );
+    if (doRegionSimplification && Simplify::regionDone) printf("Inside Region Reduction: %.8lf (%d triangles), Outside Region Reduction: %.8lf (%d triangles)\n",
+				 Simplify::currentRegionRatio, Simplify::currentRegionCount, Simplify::currentOutsideRatio, (int)(Simplify::triangles.size()) - Simplify::currentRegionCount);
+	printf("Output: %zu vertices, %zu triangles (%.6f%% overall reduction; %.4f sec)\n",Simplify::vertices.size(), Simplify::triangles.size()
+		, (float)Simplify::triangles.size()/ (float) startSize *100.0 , ((float)(clock()-start))/CLOCKS_PER_SEC );
 	return EXIT_SUCCESS;
 }
