@@ -38,12 +38,12 @@ void showHelp(char *const argv[]) {
     printf(" Common Options:\n");
     printf("  -h|?      Show help\n");
     printf("  -v        Be verbose.\n");
-    printf("  -V <arg>  Be verbose with details at every <arg> iterations (default: 10000)\n");
+    printf("  -V <arg>  Be verbose with details at every <arg> intervals (default: 1000000)\n");
     printf("  -t <arg>  Total ratio of target's polygon count to source's (default: 0.5)\n");
     printf("  -T <arg1>,<arg2>  Region INSIDE radius will be reduced by ratio arg1. Region\n");
     printf("            OUTSIDE radius by arg2. -t option will be ignored.\n");
     printf("            Example: 0.8,0.1   \"( 0.1, 0.01 )\" (default: 0.5,0.5)\n");
-    printf("  -a <arg>  Aggressiveness; higher=faster lower=better decimation (default: 2.0)\n");
+    printf("  -a <arg>  Aggressiveness; higher=faster lower=better decimation (default: 7.0)\n");
     printf(" Function options for a spacially non-uniform reduction:\n");
     printf("  -f <arg>  Function name\n");
     printf("                ARG: square|triangular|gaussian (default: constFunc)\n");
@@ -74,18 +74,18 @@ int main(int argc, char *const argv[]) {
     printf("Mesh Simplification (C)2014 by Sven Forstmann in 2014, MIT License (%zu-bit)\n", sizeof(size_t)*8);
     
     double reduceFraction = 0.5;
-    double aggressiveness = 5.0;
+    double aggressiveness = 7.0;
     double (*func)(double, double, double, double, double, double, double, double, bool) = constantFunc;
     double coord[] = {0, 0, 0};
     double radius = 1.0;
-    double scale = 2.0;
+    double scale = 1.0;
     double power = 3.0;
     bool doloadtxt = false;
     bool Toption = false;
     char filetxt[512];
     bool doRegionSimplification = false;
     bool isVerbose = false, isNegative = false;
-    int tempverboselines, verboselines = 100000;
+    int tempverboselines, verboselines = 1000000;
     int tempConsecutiveNoDeletionThreshold;
 
     int c;
@@ -100,7 +100,7 @@ int main(int argc, char *const argv[]) {
             double d = strtod(optarg, &endptr);
             if(*endptr == '\0') reduceFraction = d;
             else {
-                printf("Error: Could not read -a argument (needs a number).\n");
+                printf("Error: Could not read -t argument (needs a number).\n");
                 return EXIT_FAILURE;
             }
             }
@@ -172,7 +172,7 @@ int main(int argc, char *const argv[]) {
                 printf("square\n");
                 func = square;
             } else {
-                printf("Could not read function identifier, using constant function (uniform)\n");
+                printf("WARNING: Could not read function identifier, using constant function (uniform)\n");
             }
             break;
         case 'c':
@@ -270,7 +270,7 @@ int main(int argc, char *const argv[]) {
         }
     }
     if ((func == gaussian) && (scale <= 1)) {
-		printf("  Warning: cannot use -s %g for gaussian. scale must be > 1. Will use default = 2\n", scale);
+		printf("  Warning: detected -s %g for gaussian. scale must be > 1. Will use default = 2\n", scale);
         printf("      Gaussian ~ exp( -1 / ((radius^2)/log(scale)) ), Cannot use log( scale <= 1 )\n");
         printf("      Gaussian amplitude is 1/scale at radius\n");
     }
@@ -357,7 +357,7 @@ int main(int argc, char *const argv[]) {
 	if (dowriteobj) Simplify::write_obj(argv[optind+1], isVerbose, verboselines);
     else if (dowritetri10) Simplify::write_tri10(argv[optind+1], isVerbose, verboselines);
     else if (dowritetri9) Simplify::write_tri9(argv[optind+1], isVerbose, verboselines);
-    if (doRegionSimplification && Simplify::regionDone) printf("Inside Region Reduction: %.8lf (%d triangles), Outside Region Reduction: %.8lf (%d triangles)\n",
+    if (doRegionSimplification && Simplify::regionDone) printf("Inside Region Reduction:  %.8lf (%d triangles)\nOutside Region Reduction: %.8lf (%d triangles)\n",
 				 Simplify::currentRegionRatio, Simplify::currentRegionCount, Simplify::currentOutsideRatio, (int)(Simplify::triangles.size()) - Simplify::currentRegionCount);
 	printf("Output: %zu vertices, %zu triangles (%.6f%% overall reduction; %.4f sec)\n",Simplify::vertices.size(), Simplify::triangles.size()
 		, (float)Simplify::triangles.size()/ (float) startSize *100.0 , ((float)(clock()-start))/CLOCKS_PER_SEC );

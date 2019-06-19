@@ -54,9 +54,9 @@ void loadfromtri10(const char *filename, bool verbose = false, int verboselines 
             vertices.push_back(v0);
             vertices.push_back(v1);
             vertices.push_back(v2);
-            t.v[0] = line_index;
-            t.v[1] = line_index+1;
-            t.v[2] = line_index+2;
+            t.v[0] = (3*line_index);
+            t.v[1] = (3*line_index)+1;
+            t.v[2] = (3*line_index)+2;
             /*
             // Find vertex from container of vertices, and use existing vertex if found
             bool v0Missing = true, v1Missing = true, v2Missing = true;
@@ -87,7 +87,7 @@ void loadfromtri10(const char *filename, bool verbose = false, int verboselines 
                 t.v[2] = int(vertices.size()) - 1;
             }*/
             triangles.push_back(t);
-            line_index+=3; // 3 for simple conversion
+            line_index++; // 3 for simple conversion
             if (verbose && (line_index % verboselines == 0)) printf("tri lines read: %d\n", line_index);
         }
     }

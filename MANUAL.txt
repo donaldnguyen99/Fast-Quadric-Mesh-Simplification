@@ -1,0 +1,145 @@
+Manual
+
+Summary
+
+fqms
+(Fast-Quadric-Mesh-Simplification) simplifies an triangular mesh .obj, 
+.tri9, or .tri10 file using quadric error metrics. Input and output files can 
+be either obj, tri9, or tri10. trii9 and tri10 input files will take longer to 
+load and process because an extra step to eliminate duplicate vertices need to 
+be merged for every triangle. fqms does not modify or convert input files. It 
+is suggested to use an obj file with duplicate vertices already removed (by 
+using tri10_2_obj_merge_dup) to save time from merging duplicates of input tri9 
+files every fqms test.
+
+tri10_2_obj
+converts either tri10 or tri9 into an obj file WITHOUT merging duplicate 
+vertices. Output obj merged duplicates WILL NOT work with fqms because fqms 
+will not know how triangles share a vertex. However, not merging will allow 
+tri10_2_obj to convert slightly more quickly.
+
+tri10_2_obj_merge_dup
+converts either tri10 or tri9 into an obj file WITH 
+merged duplicate vertices using a hash table lookup method O(n) where duplicate 
+vertices merge to a single hashtable entry. fqms WILL work properly on outputs 
+from tri10_2_obj_merge_dup.
+
+obj_2_tri9 and obj_2_tri10
+are simple, quick converters from an input 
+obj file to an output tri9 or tri10 file. tri10 contain a trivial 10th column 
+of values 0.000000.
+
+Command-Line Interface Usage:
+Options must be entered before the filenames.
+
+    fqms [option...] inputfile outputfile
+
+    tri10_2_obj [option...] inputfile outputfile
+
+    tri10_2_obj_merge_dup [option...] inputfile outputfile
+
+    obj_2_tri9 [option...] inputfile outputfile
+
+    obj_2_tri10 [option...] inputfile outputfile
+
+
+fqms options (shown from fqms -h)
+Common Options:
+    -h        Show help
+    -?        Show help
+    -v        Be verbose.
+    -V <arg>  Be verbose with details at every <arg> intervals (default: 1000000)
+              such as every tri 1000000 lines read.
+    -t <arg>  Total ratio of target's polygon count to source's (default: 0.5)
+    -T <arg1>,<arg2>  Region INSIDE radius will be reduced by ratio arg1. Region
+              OUTSIDE radius by arg2. -t option will be ignored.
+                  Example: 0.8,0.1   "( 0.1, 0.01 )" (default: 0.5,0.5)
+              Final result will usually be lower than targets because fqms
+              needs to complete its current iteration to prevent partial 
+              simplification of the mesh.
+    -a <arg>  Aggressiveness; higher=faster lower=better decimation (default: 7.0)
+              Each fqms iteration will increase the quadric-error threshold by a
+              factor of (iteration + 3) ^ aggressiveness
+              Therefore fqms will finish quickly but at the cost of triangle   
+              quality, such as elongated triangles or jagged edges.
+
+Function options for a spacially non-uniform reduction:
+    The function modifies the quadric-error threshold of a triangle by its  
+    spatial position. The function encompasses the whole mesh for all 
+    iterations. If -T is used, the region of interest will have result with a 
+    different degree of the same functional reduction as the rest of the mesh.
+    -f <arg>  Function name
+              ARG: square | triangular | gaussian (default: constFunc)
+                  square creates a uniform region at a different degree from 
+                  the rest of the mesh. triangular and gaussian produce 
+                  non-uniform triangle sizes.
+    -c <arg>  Comma-separated coordinate for center of function (default: 0,0,0)
+              Use quotes if including spaces: "(-1, 0, 100)"  "[ 0.1, 4, 2 ]"
+    -r <arg>  Radius or boundary of function (default: 1.0)
+    -s <arg>  Scale down specifically for each function (default: 1.0)
+              square: region is retained by s, outside region is simplified fully
+                  square's ARG: -1 to 1; negative ARG equivalent to -n flag.
+                  -s 1 leaves region 100% retained, -1 simplifies region only.
+                  Any fraction allows some but slower simplification in region.
+                  -s 0.5 modifies threshold for region triangles by 0.5, slowing 
+                  simplification inside compared to outside.
+              triangular: change radius -r by factor of 1/s
+                  trivial to use -s for triangular
+              gaussian: attenuate amplitude by factor of 1/s at radius r;
+                  (default: 2.0); if s <= 1, default is used
+                  For reference, gaussian() ~ exp( -1 / ((radius^2)/log(scale)) )
+                  with STD_DEVIATION = r/sqrt(2*ln(s))
+                  Triangle's threshold will be modified by a factor of the  
+                  gaussian's amplitude. -s 10 will create a gaussian where 
+                  amplitude at radius -r equals 1/10 of max amplitude, producing 
+                  a more steep pattern of simplification.
+    -p <arg>  Power to which the function is raised to (default: 3.0)
+              Explicitly, threshold is proportional to (function)^p
+              Higher -p means function is more visibly apparent.
+    -n        Negative form of function used, inverting the spatial pattern of 
+              simplification. If used with gaussian or triangular, it's 
+              recommended to use large total target or outer region ratio (close to 1) or use a high aggressive since not many triangles can be deleted. Otherwise, it will take many iterations as fqms tries to reach target ratio.
+    -b <arg>  Breaking all iterations if selected number of consecutive iterations
+              failed to delete triangles. (default: 1000)
+
+Examples:
+    fqms -t 0.2 dir/in.obj dir/out.obj
+    fqms -v -T 0.2,0.05 -f gaussian -c -1239,249,1191 -r 150 in.obj out.obj
+    fqms -vn -t 0.9 -f square -c 10,-20,0.5 -r 10 ~/dir/in.tri10 ~/dir/out.tri9
+
+
+tri10_2_obj, tri10_2_obj_merge_dup, obj_2_tri9, obj_2_tri10 options
+These converters all have the same options.
+
+    tri10_2_obj [-v|-h|-?|[-V <verbose_interval>]] inputfile.tri10 outputfile.obj
+
+Examples:
+    tri10_2_obj_merge_dup -V 1000 dir/input.tri10 dir/output.obj
+    obj_2_tri9 -v dir/input.obj dir/output.tri9
+
+
+Example Workflow
+1. Convert tri10 to an obj file with duplicate vertices merged so that we can 
+reuse the obj file for different fqms tests.
+2. Produce one non-uniformly simplified mesh where a region bounded by 
+a radius and centered at (-1239,249,1191) will have a small triangles of a steep 
+gaussian spatial pattern while the outer region will have larger triangles of 
+also a much less distinct gaussian spatial pattern.
+3. The second mesh will have a global gaussian spatial pattern where the center 
+has the largest triangles and triangles farthest away are the smallest and least 
+simplified. Since most of the mesh remains non-decimated, the fqms process will 
+take a longer time.
+4. We convert simplified mesh to tri10 or tri9 format using obj_2_tri10 or 
+obj_2_tri9. Also, if we wanted to convert directly after simplifying we can use fqms with outputfile with a .tri9 or .tri10 extension.
+
+
+[user@host ~]$ tri10_2_obj -V 1000000 lev10global.tri10 lev10global.obj
+
+[user@host ~]$ fqms -V 1000000 -T 0.7,0.05 -f gaussian -c -1239,249,1191 -r 300 -s 5 -p 4 -a 6 lev10global.obj lev10globalsimplified.obj
+
+[user@host ~]$ fqms -V 1000000 -T 0.05,0.9 -n -f gaussian -c -1239,249,1191 -r 1000 -p 1 -a 11 lev10global.obj lev10globalinverted.obj
+
+[user@host ~]$ obj_2_tri9 -V 1000000 lev10globalsimplified.obj lev10globalsimplified.tri9
+
+[user@host ~]$ obj_2_tri9 -V 1000000 lev10globalinverted.obj lev10globalsimplified.tri9
+

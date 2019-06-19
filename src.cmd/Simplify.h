@@ -591,7 +591,7 @@ namespace Simplify
 					double squareFactor = square(vertices[t.v[0]].p.x, vertices[t.v[0]].p.y, vertices[t.v[0]].p.z,
 					coord[0], coord[1], coord[2], radius, 1.0, false);
 					if (func != constantFunc) {
-						if ((fabs(squareFactor - 0)) <= 0.0000001) {
+						if ((fabs(squareFactor - 0)) <= 0.000000001) {
 							threshold = 0;
 						} else {
 							threshold = threshold0*pow(func(
