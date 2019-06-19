@@ -133,7 +133,7 @@ take a longer time.
 obj_2_tri9. Also, if we wanted to convert directly after simplifying we can use fqms with outputfile with a .tri9 or .tri10 extension.
 
 
-[user@host ~]$ tri10_2_obj -V 1000000 lev10global.tri10 lev10global.obj
+[user@host ~]$ tri10_2_obj_merge_dup -V 1000000 lev10global.tri10 lev10global.obj
 
 [user@host ~]$ fqms -V 1000000 -T 0.7,0.05 -f gaussian -c -1239,249,1191 -r 300 -s 5 -p 4 -a 6 lev10global.obj lev10globalsimplified.obj
 
