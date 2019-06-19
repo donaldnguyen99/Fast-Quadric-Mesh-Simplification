@@ -64,10 +64,15 @@ Common Options:
               quality, such as elongated triangles or jagged edges.
 
 Function options for a spacially non-uniform reduction:
-    The function modifies the quadric-error threshold of a triangle by its  
-    spatial position. The function encompasses the whole mesh for all 
-    iterations. If -T is used, the region of interest will have result with a 
-    different degree of the same functional reduction as the rest of the mesh.
+    fqms has an quadric-error threshold every iteration, and is the overall 
+    threshold. The function modifies the quadric-error threshold of a triangle 
+    by its spatial position. The function encompasses the whole mesh for all 
+    iterations. If -T is used, the region of interest will have a result with a 
+    different degree of the same functional reduction as the rest of the mesh. 
+    When the region has reached the target ratio, the threshold becomes zero 
+    only for triangles inside to prevent further decimation of those triangles. 
+    As decimation continues for outer triangles, triangles along the boundary 
+    may get decimated reducing the region's ratio further than the target.
     -f <arg>  Function name
               ARG: square | triangular | gaussian (default: constFunc)
                   square creates a uniform region at a different degree from 
