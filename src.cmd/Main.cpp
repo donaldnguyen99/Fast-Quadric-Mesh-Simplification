@@ -314,12 +314,12 @@ int main(int argc, char *const argv[]) {
     }
     if (doloadobj) Simplify::load_obj(argv[optind], isVerbose, verboselines);
     else if (doloadtri10) Simplify::load_tri10(argv[optind], isVerbose, verboselines);
+    if (Toption) {
+        if (Simplify::target_outside_ratio == -1) reduceFraction = Simplify::target_region_ratio; // Use -T <arg1> for outside ratio
+        else reduceFraction = Simplify::target_outside_ratio;
+        doRegionSimplification = false;
+    }
     if (doloadtxt) {
-        if (Toption) {
-            if (Simplify::target_outside_ratio == -1) reduceFraction = Simplify::target_region_ratio; // Use -T <arg1> for outside ratio
-            else reduceFraction = Simplify::target_outside_ratio;
-            doRegionSimplification = false;
-        }
         Simplify::load_txt(filetxt, isVerbose);
         double minRegionRatio = 0; 
         for (int i = 0; i < int(Simplify::regions.size()) - 1; i++) {
